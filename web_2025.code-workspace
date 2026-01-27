@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.wordWrap": "on",
+		"liveServer.settings.AdvanceCustomBrowserCmdLine": "",
+		"liveServer.settings.root": "/",
+		"liveServer.settings.https": {
+			"enable": true,
+			"cert": "C:\\Users\\septo\\192.168.1.2.pem",
+			"key": "C:\\Users\\septo\\192.168.1.2-key.pem"
+		},
+	}
+}
+

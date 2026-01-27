@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+    <head>
+        <title>configurations</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div id="popup-controller">
+            <span class="popup-title">⚙️ configurations</span>
+            <div class="controller-box">
+                <span class="controller-title-1">configations</span><br />
+                trailBrushMotion: <u id="trailBrushMotion-usedConfig">?</u
+                ><br />
+                popTrailMotion: <u id="popTrailMotion-usedConfig">?</u><br />
+                <br />
+                <span class="controller-title-1">shortcut</span><br />
+                <span class="controller-title-2">trailBrushMotion</span><br />
+                <div id="trailbrushMotionConfigList"></div>
+                <br />
+                <span class="controller-title-2">popTrailMotion</span><br />
+                <div id="popTrailMotionConfigList"></div>
+            </div>
+            <div class="controller-box">
+                <span class="controller-title-1">canvas recorder</span><br />
+                <span>time: </span>
+                <span class="timeRecorded">time / frame</span><br />
+                <span>tools: </span>
+                <span class="startRecord">[start]</span>
+                <span class="saveRecord">[save]</span>
+                <span class="deleteRecord">[delete]</span>
+            </div>
+        </div>
+    </body>
+</html>
+
+<script>
+    //--- fetch recorder
+    let recorderInstance = window.opener.recorderInstance;
+
+    let trailBrushMotionConfigs = window.opener.trailBrushMotion;
+    let popTrailMotionConfigs = window.opener.popTrailMotion;
+
+    //---- fetch configs
+    for (let key in trailBrushMotionConfigs.configs) {
+        let span = document.createElement("span");
+        span.textContent = `(key: ${trailBrushMotionConfigs.configs[key].shortcut}) ${key}`;
+        // console.log(trailBrushMotionConfig);
+        document.getElementById("trailbrushMotionConfigList").appendChild(span);
+    }
+
+    for (let key in popTrailMotionConfigs.configs) {
+        let span = document.createElement("span");
+        span.textContent = `(key: ${popTrailMotionConfigs.configs[key].shortcut}) ${key}`;
+        // console.log(trailBrushMotionConfig);
+        document.getElementById("popTrailMotionConfigList").appendChild(span);
+    }
+
+    //--- check recorder
+    const startRecord = document.querySelector(".startRecord");
+    const saveRecord = document.querySelector(".saveRecord");
+    const deleteRecord = document.querySelector(".deleteRecord");
+
+    startRecord.addEventListener("click", () => {
+        if (checkRecording() == "paused" || checkRecording() == "not started") {
+            window.opener.record();
+        } else {
+            window.opener.pauseRecording();
+        }
+    });
+
+    saveRecord.addEventListener("click", saveRecording);
+    deleteRecord.addEventListener("click", deleteRecording);
+
+    function checkRecording() {
+        if (window.opener.recording && !recorderInstance.paused) {
+            startRecord.textContent = "[pause]";
+            return "recorded";
+        } else if (window.opener.recording && recorderInstance.paused) {
+            startRecord.textContent = "[resume]";
+            return "paused";
+        } else {
+            return "not started";
+        }
+    }
+
+    function deleteRecording() {
+        startRecord.textContent = "[start]";
+        window.opener.deleteRecording();
+    }
+
+    function saveRecording() {
+        startRecord.textContent = "[start]";
+        window.opener.saveRecording();
+    }
+
+    //--- update config every 100ms
+    setInterval(() => {
+        document.querySelector(".timeRecorded").textContent =
+            `${recorderInstance.time.hours}:${recorderInstance.time.minutes}:${recorderInstance.time.seconds} / frame: ${recorderInstance.time.frames}`;
+
+        document.getElementById("trailBrushMotion-usedConfig").textContent =
+            trailBrushMotionConfigs.usedConfig;
+        document.getElementById("popTrailMotion-usedConfig").textContent =
+            popTrailMotionConfigs.usedConfig;
+
+        checkRecording();
+    }, 100);
+
+    // window.addEventListener("load", () => {
+    //   if (window.opener && !window.opener.closed) {
+    //     window.opener.onPopupReady();
+
+    //   }
+    // });
+</script>

@@ -1,0 +1,130 @@
+body {
+    /*display: flex;
+                flex-direction: column;
+                align-items: center;
+                align-content: center;
+                justify-content: center;
+                justify-items: center;*/
+    margin: 0;
+    background-color: black;
+    font-family: monospace;
+    overflow: hidden;
+}
+
+#main-canvas {
+    /*background-color: black;*/
+    padding: 25px;
+    display: flex;
+    justify-content: center;
+    margin: 0 auto;
+    /*border: 1px solid #444444;*/
+}
+
+#main-controller {
+    display: flex;
+    padding: 10px;
+    /*background-color: black;*/
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#openControl {
+    padding: 10px !important;
+    cursor: pointer;
+    display: inline-block;
+    opacity: 0.7;
+}
+
+#openControl:hover {
+    opacity: 1;
+}
+
+#popup-controller {
+    width: 100dvw;
+    height: 100dvh;
+    background-color: #111111;
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: flex-start;
+    align-content: center;
+    align-items: center;
+    margin: auto;
+}
+
+#popup-controller > * {
+    width: 80%;
+}
+
+#popup-controller > *,
+.rec > *,
+#openControl,
+.rec > input {
+    background-color: #111111;
+    padding: 4px;
+    border: 2px solid #444444;
+    color: #999999;
+    border-radius: 10px;
+}
+
+#popup-controller > * {
+    padding: 10px;
+}
+
+.rec {
+    /*left: 0 !important;
+    top: 0 !important;*/
+    position: unset !important;
+    margin: 0 !important;
+}
+
+.popup-title {
+    margin-top: 20px;
+    border: none !important;
+}
+
+canvas {
+    display: block;
+}
+
+.controller-title-1,
+.controller-title-2 {
+    color: aquamarine;
+}
+
+.controller-title-1::before {
+    content: "--- ";
+}
+
+.controller-title-2::before {
+    content: "---- ";
+}
+
+.startRecord,
+.pauseRecord,
+.saveRecord,
+.deleteRecord {
+    cursor: pointer;
+    /*color: white;*/
+}
+
+.startRecord:hover,
+.pauseRecord:hover,
+.saveRecord:hover,
+.deleteRecord:hover {
+    cursor: pointer;
+    color: white;
+}
+
+#trailbrushMotionConfigList > span,
+#popTrailMotionConfigList > span {
+    display: block;
+    cursor: pointer;
+}
+
+#trailbrushMotionConfigList > span:hover,
+#popTrailMotionConfigList > span:hover {
+    color: white;
+}

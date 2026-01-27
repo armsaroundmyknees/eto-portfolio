@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="UTF-8" />
+        <title>collage w/ gesture generator :-)</title>
+        <script src="../addons/ml5.js"></script>
+        <script src="https://q5js.org/q5.js"></script>
+        <style>
+            body {
+                margin: 2dvh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background-color: gray;
+                font-family: sans-serif;
+            }
+
+            /* Container tunggal untuk kanvas gabungan */
+            #main-canvas {
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                /* Hilangkan width/height fix di CSS agar mengikuti ukuran canvas */
+            }
+
+            canvas {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="main-canvas"></canvas>
+        <div id="container-record"></div>
+        <script src="sketch_q5.js"></script>
+    </body>
+</html>

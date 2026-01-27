@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Main</title>
+        <style>
+            body {
+                font-family: monospace;
+            }
+            #openControl {
+                padding: 10px;
+                border: 1px solid #000;
+                cursor: pointer;
+                display: inline-block;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="openControl">⚙️ Open Controller</div>
+
+        <script>
+            // ========= SOURCE OF TRUTH =========
+            window.trailBrushMotion = {
+                usedConfig: "bird1",
+            };
+
+            let popupController = null;
+
+            function canvasController() {
+                const controller = document.querySelector("#openControl");
+
+                controller.addEventListener("click", () => {
+                    if (popupController && !popupController.closed) {
+                        popupController.focus();
+                        return;
+                    }
+
+                    popupController = window.open(
+                        "popup.html",
+                        "controllerWindow",
+                        "width=300,height=400",
+                    );
+                });
+            }
+
+            canvasController();
+
+            // 🔥 biar enak ngoprek di console
+            window.config = window.trailBrushMotion;
+
+            /*
+        Coba di console MAIN:
+        config.usedConfig = "bird2"
+        config.usedConfig = "letter"
+      */
+        </script>
+    </body>
+</html>
