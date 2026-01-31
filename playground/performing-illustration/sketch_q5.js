@@ -1,22 +1,71 @@
+//-- initializing Q5
+let webGPUMode = false;
 let initialResolution = { width: 1080, height: 1350 }; // artwork size before webcam and spacer
 let artworkCanvas;
+
+//-- q5 webcam
+let webcamHeightSpacer = 20;
+let webcamReferences;
+let webcamPosition = "TOP";
+let webcamBuffer;
+
+//--- dom
+let noticeBlock = document.getElementById("main-notice");
+let noticePreloadStats = noticeBlock.querySelector("#loading-status-notice");
 let pageTitle = document.title;
 let mainCanvas = document.getElementById("main-canvas");
 let mainController = document.getElementById("main-controller");
 let popupController = null;
-let backgroundImage;
-let whitetransparent;
 let recordElement;
-let webcamHeightSpacer = 20;
-let webcamReferences;
-let webcamPosition = "TOP";
 
-//---- ml5 config
+//-- q5 draw
+let strokeWeightSize = 5;
+let backgroundImage;
+
+//----  q5 -> ml5 config
 let handPose;
 let hands = [];
 
-Q5.WebGPU();
-Q5.experimental = true;
+initQ5();
+
+async function initQ5() {
+  if (!webGPUMode) {
+    function preDrawTransform() {
+      _mouseX = mouseX;
+      _mouseY = mouseY;
+
+      // override ke world-space
+      window.mouseX = _mouseX - width / 2;
+      window.mouseY = _mouseY - height / 2;
+    }
+
+    function postDrawTransform() {
+      // balikin ke nilai asli (biar event p5 gak rusak)
+      window.mouseX = _mouseX;
+      window.mouseY = _mouseY;
+    }
+
+    const _draw = window.draw;
+    window.draw = function () {
+      resetMatrix();
+      translate(width / 2, height / 2);
+
+      preDrawTransform();
+      _draw();
+      postDrawTransform();
+    };
+  } else {
+    await Q5.WebGPU();
+    Q5.experimental = true;
+    // start writing webGPU shader here...
+    //======================================
+  }
+}
+
+//======================================
+// fix kode webGPU coordinate system ke canvas2d coord system
+//======================================
+let _mouseX, _mouseY;
 
 function cssToRGBA(css) {
   const m = css
@@ -82,7 +131,7 @@ window.popTrailMotion = {
       maxLifeTime: 6000,
       boxStrokeWeight: 10,
       boxStrokeColor: "#000000",
-      boxFillColor: "#00ff00",
+      boxFillColor: "#e8da99",
       imageLifeTimeDelay: -800,
       animationSpeed: 150,
       boxOverlapSize: 0.3,
@@ -285,7 +334,7 @@ window.trailBrushMotion = {
       maxLifeTime: 6000,
       boxStrokeWeight: 8,
       boxStrokeColor: "#000000",
-      boxFillColor: "#00ff00",
+      boxFillColor: "#e8da99",
       imageLifeTimeDelay: -100,
       animationSpeed: 200,
       boxOverlapSize: 0.5,
@@ -318,7 +367,7 @@ window.trailBrushMotion = {
       baseLifeTime: 400,
       maxLifeTime: 5000,
       boxStrokeWeight: 10,
-      boxStrokeColor: "orange",
+      boxStrokeColor: "#000000",
       boxFillColor: "white",
       imageLifeTimeDelay: -100,
       animationSpeed: 200,
@@ -497,6 +546,7 @@ function gotHands(results) {
 async function setup() {
   //------ artwork canvas setup
   noLoop();
+
   artworkCanvas = createCanvas(
     initialResolution.width,
     initialResolution.height,
@@ -529,11 +579,30 @@ async function setup() {
 
   artworkCanvas.style.borderRadius = "50px";
 
+  // setelah akses kamera selesai
+  noticeBlock.querySelector(
+    "#loading-status-notice",
+  ).childNodes[0].textContent = "waiting for machine learning (ml5)";
+
   handPose = await ml5.handPose({ flipped: true }, () => {
     console.log("handpose ready");
   });
 
-  handPose.detectStart(webcamReferences, gotHands);
+  // setelah ml5.js berhasil diload
+  noticeBlock.querySelector(
+    "#loading-status-notice",
+  ).childNodes[0].textContent = "waiting for hand detection)";
+
+  // detect handpose here
+  await handPose.detectStart(webcamReferences, gotHands);
+
+  // setelah handPose berhasil diload
+  noticeBlock.querySelector(
+    "#loading-status-notice",
+  ).childNodes[0].textContent = "all set";
+
+  // tunggu 2 detik
+  noticeBlock.classList.add("hide");
 
   // console.log("height:", webcamReferences.height);
 
@@ -585,8 +654,6 @@ async function setup() {
     }
   }
 
-  whitetransparent = color(255, 255, 255, 0);
-
   // pixelDensity(1);
   //
   //
@@ -602,6 +669,10 @@ async function setup() {
 
 function draw() {
   background("black");
+
+  // frameRate(60);
+
+  // document.title = "FPS: " + getFPS() + " / " + pageTitle;
 
   // ==========================================================
   // 1. DYNAMIC LAYOUT CALCULATION (MENTOK EDGE VERSION)
@@ -649,8 +720,8 @@ function draw() {
   // 2. DRAW ARTWORK DEBUG (Opsional / Background layer)
   // ==========================================================
   push();
-  fill("#444444");
-  // stroke("yellow");
+  fill("#ccdde8");
+  // stroke("white");
   // strokeWeight(10);
   rect(0, artworkDrawY, initialResolution.width, initialResolution.height);
   // drawBackground(artworkDrawY);
@@ -662,6 +733,8 @@ function draw() {
 
   // A. Gambar Webcam Feed sesuai posisi dinamis
   push();
+  // shader(monotoneShader);
+
   image(
     webcamReferences,
     0,
@@ -669,6 +742,30 @@ function draw() {
     webcamReferences.width,
     webcamReferences.height,
   );
+
+  if (!webGPUMode) {
+    fill("black");
+    noStroke();
+    blendMode("saturation");
+    rect(
+      0,
+      videoDrawY, // <--- Menggunakan variabel dinamis
+      webcamReferences.width,
+      webcamReferences.height,
+    );
+
+    fill("#4287f5");
+    noStroke();
+    blendMode("screen");
+    rect(
+      0,
+      videoDrawY, // <--- Menggunakan variabel dinamis
+      webcamReferences.width,
+      webcamReferences.height,
+    );
+  }
+
+  // resetImageShader();
   pop();
 
   // B. Hitung ROI (Area kotak kuning)
@@ -681,10 +778,11 @@ function draw() {
   // C. Gambar Debug ROI (Kotak Kuning)
   push();
   noFill();
-  stroke("yellow");
-  strokeWeight(2);
+  stroke("white");
+
+  strokeWeight(strokeWeightSize);
   // Kotak kuning harus ikut pindah sesuai posisi webcam (videoDrawY)
-  rect(0, videoDrawY, roiW, roiH);
+  rect(0, videoDrawY, roiW - strokeWeightSize - 2, roiH - strokeWeightSize - 2);
   pop();
 
   // ==========================================================
@@ -738,7 +836,7 @@ function draw() {
     // --- C. RENDER CURSOR & VISUAL ---
 
     if (hand.handedness === "Right") {
-      fill("orange");
+      fill("white");
       noStroke();
 
       // 1. Cursor Utama (Bola Besar) -> Di Artwork
@@ -750,17 +848,18 @@ function draw() {
 
       // 3. Process Input
       handleRightHandInput(indexX, indexY, thumbX, thumbY, cursorX, cursorY);
-    } else if (hand.handedness === "Left") {
-      fill("green");
-      noStroke();
-      circle(cursorX, cursorY, 30); // Di Artwork
-      rect(indexX, indexY, 20, 20); // Di Webcam
-      rect(thumbX, thumbY, 20, 20); // Di Webcam
     }
+    // else if (hand.handedness === "Left") {
+    //   fill("white");
+    //   noStroke();
+    //   circle(cursorX, cursorY, 30); // Di Artwork
+    //   rect(indexX, indexY, 20, 20); // Di Webcam
+    //   rect(thumbX, thumbY, 20, 20); // Di Webcam
+    // }
   }
 
   // ==========================================================
-  // 5. MOTION UPDATE
+  // MOTION UPDATE
   // ==========================================================
   let currentTime = millis();
   trailBrushMotion.update(currentTime);
@@ -924,7 +1023,7 @@ function handleRightHandInput(
   smoothY = lerp(smoothY, cursorY, easingFactor);
 
   // Debug Visual (Opsional):
-  // fill("blue"); circle(smoothX, smoothY, 15); // Lihat bedanya bola biru (smooth) vs merah (asli)
+  // fill("#4287f5"); circle(smoothX, smoothY, 15); // Lihat bedanya bola biru (smooth) vs merah (asli)
 
   let indexAndThumbDistance = dist(indexX, indexY, thumbX, thumbY);
 
@@ -991,6 +1090,9 @@ function reverseShortcut(motions, shortcut) {
   return results;
 }
 
+let startRecordPressed = false;
+let loopStatus = true;
+
 function keyPressed() {
   // Fungsi ini hanya jalan 1x setiap kali tombol ditekan
   //
@@ -1014,6 +1116,27 @@ function keyPressed() {
       }
     }
   }
+
+  if (key.toLowerCase() == "r") {
+    if (startRecordPressed) {
+      saveRecording();
+      startRecordPressed = false;
+    } else {
+      record();
+      startRecordPressed = true;
+    }
+  }
+
+  if (key.toLowerCase() == "l") {
+    if (loopStatus) {
+      noLoop();
+      loopStatus = false;
+    } else {
+      loop();
+      loopStatus = true;
+    }
+  }
+
   // console.log(key);
   // console.log(reverseShortcut(motions, key));
 }
