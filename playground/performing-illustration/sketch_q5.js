@@ -5,7 +5,7 @@ let artworkCanvas;
 
 //-- q5 webcam
 let webcamHeightSpacer = 20;
-let webcamHeightPlus = 50;
+let webcamHeightPlus = 0;
 let webcamReferences;
 let webcamPosition = "TOP";
 let webcamBuffer;
