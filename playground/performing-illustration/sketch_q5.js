@@ -5,6 +5,7 @@ let artworkCanvas;
 
 //-- q5 webcam
 let webcamHeightSpacer = 20;
+let webcamHeightPlus = 50;
 let webcamReferences;
 let webcamPosition = "TOP";
 let webcamBuffer;
@@ -560,7 +561,10 @@ async function setup() {
   //----- setup webcam
   webcamReferences = await createCapture(
     {
-      video: { width: 1080 },
+      video: {
+        width: initialResolution.width,
+        aspectRatio: 16 / 9,
+      },
     },
     { flipped: true },
   );
@@ -569,7 +573,10 @@ async function setup() {
 
   resizeCanvas(
     artworkCanvas.width,
-    artworkCanvas.height + webcamReferences.height + webcamHeightSpacer,
+    artworkCanvas.height +
+      webcamReferences.height +
+      webcamHeightPlus +
+      webcamHeightSpacer,
   );
 
   //----- artwork canvas (DOM) dynamic resize view
@@ -668,6 +675,39 @@ async function setup() {
   recorderInstance.style.display = "none";
 }
 
+function drawWebcamCover(
+  video,
+  x,
+  y,
+  tw = initialResolution.width,
+  th = webcamReferences.height + webcamHeightPlus,
+) {
+  if (!video || video.width === 0) return;
+
+  // abaikan portrait
+  if (video.width < video.height) return;
+
+  const srcRatio = video.width / video.height;
+  const dstRatio = tw / th;
+
+  let sx = 0,
+    sy = 0,
+    sw = video.width,
+    sh = video.height;
+
+  if (srcRatio > dstRatio) {
+    // source terlalu lebar → crop kiri-kanan
+    sw = video.height * dstRatio;
+    sx = (video.width - sw) * 0.5;
+  } else {
+    // source terlalu tinggi → crop atas-bawah
+    sh = video.width / dstRatio;
+    sy = (video.height - sh) * 0.5;
+  }
+
+  image(video, x, y, tw, th, sx, sy, sw, sh);
+}
+
 // ==========================================
 // REPLACE YOUR EXISTING draw() FUNCTION
 // ==========================================
@@ -694,7 +734,7 @@ function draw() {
   let canvasTopEdge = -height / 2;
   let canvasBottomEdge = height / 2;
 
-  let halfWebcamH = webcamReferences.height / 2;
+  let halfWebcamH = (webcamReferences.height + webcamHeightPlus) / 2;
   let halfArtH = initialResolution.height / 2;
 
   if (webcamPosition === "TOP") {
@@ -740,14 +780,17 @@ function draw() {
   // A. Gambar Webcam Feed sesuai posisi dinamis
   push();
   // shader(monotoneShader);
+  //
 
-  image(
-    webcamReferences,
-    0,
-    videoDrawY, // <--- Menggunakan variabel dinamis
-    webcamReferences.width,
-    webcamReferences.height,
-  );
+  drawWebcamCover(webcamReferences, 0, videoDrawY);
+
+  // image(
+  //   webcamReferences,
+  //   0,
+  //   videoDrawY, // <--- Menggunakan variabel dinamis
+  //   webcamReferences.width,
+  //   webcamReferences.height,
+  // );
 
   if (!webGPUMode) {
     fill("black");
@@ -756,8 +799,8 @@ function draw() {
     rect(
       0,
       videoDrawY, // <--- Menggunakan variabel dinamis
-      webcamReferences.width,
-      webcamReferences.height,
+      initialResolution.width,
+      webcamReferences.height + webcamHeightPlus,
     );
 
     fill("#4287f5");
@@ -766,8 +809,8 @@ function draw() {
     rect(
       0,
       videoDrawY, // <--- Menggunakan variabel dinamis
-      webcamReferences.width,
-      webcamReferences.height,
+      initialResolution.width, //webcamReferences.width,
+      webcamReferences.height + webcamHeightPlus, // webcamReferences.height,
     );
   }
 
@@ -777,7 +820,7 @@ function draw() {
   // B. Hitung ROI (Area kotak kuning)
   // ROI ini tidak peduli posisi atas/bawah, dia peduli rasio artwork
   let artworkRatio = initialResolution.width / initialResolution.height;
-  let roiH = webcamReferences.height;
+  let roiH = webcamReferences.height + webcamHeightPlus;
   let roiW = roiH * artworkRatio;
   let roiOffsetX = (webcamReferences.width - roiW) / 2;
 
