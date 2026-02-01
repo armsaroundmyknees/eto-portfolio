@@ -26,6 +26,10 @@ let backgroundImage;
 let handPose;
 let hands = [];
 
+//--- q5 bg + dom bg
+let backgroundColor = "#dddddd";
+document.body.style.backgroundColor = backgroundColor;
+
 initQ5();
 
 async function initQ5() {
@@ -578,6 +582,7 @@ async function setup() {
   }
 
   artworkCanvas.style.borderRadius = "50px";
+  artworkCanvas.style.border = "2px solid #666666";
 
   // setelah akses kamera selesai
   noticeBlock.querySelector(
@@ -668,7 +673,7 @@ async function setup() {
 // ==========================================
 
 function draw() {
-  background("black");
+  background(backgroundColor);
 
   // frameRate(60);
 
@@ -723,6 +728,7 @@ function draw() {
   fill("#ccdde8");
   // stroke("white");
   // strokeWeight(10);
+  noStroke();
   rect(0, artworkDrawY, initialResolution.width, initialResolution.height);
   // drawBackground(artworkDrawY);
   pop();
@@ -1139,4 +1145,9 @@ function keyPressed() {
 
   // console.log(key);
   // console.log(reverseShortcut(motions, key));
+}
+
+function changeBackgroundColor(color) {
+  backgroundColor = color;
+  document.body.style.backgroundColor = color;
 }
