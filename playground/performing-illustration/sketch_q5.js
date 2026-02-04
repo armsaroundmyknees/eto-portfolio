@@ -1225,6 +1225,16 @@ function handleRightHandInput(
     isHandPinching = false;
   }
 
+  for (let c of cursorCirclesTrail) {
+    rect(c.x, c.y, c.r, c.r);
+  }
+
+  setInterval(() => {
+    if (cursorCirclesTrail.length > 30) {
+      cursorCirclesTrail.shift();
+    }
+  }, 2000);
+
   if (isHandPinching) {
     let conf =
       trailBrushMotion.configs[trailBrushMotion.usedConfig] ||
@@ -1233,18 +1243,15 @@ function handleRightHandInput(
     // 3. PENTING: Kirim smoothX dan smoothY, BUKAN cursorX/cursorY
     processTrailHandInput(conf, smoothX, smoothY);
 
-    for (let c of cursorCirclesTrail) {
-      rect(c.x, c.y, c.r, c.r);
-    }
-
     cursorCirclesTrail.push({
-      x: thumbX,
-      y: thumbY,
+      x: indexX,
+      y: indexY,
       r: drawSettings.squareSize,
     });
   } else {
     trailBrushMotion.isDrawing = false;
-    cursorCirclesTrail = [];
+
+    // cursorCirclesTrail = [];
   }
 }
 
