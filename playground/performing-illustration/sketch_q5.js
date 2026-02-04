@@ -10,6 +10,9 @@ let webcamReferences;
 let webcamPosition = "TOP";
 let webcamBuffer;
 
+//--- ROI
+let cursorCirclesTrail = [];
+
 //--- dom
 let noticeBlock = document.getElementById("main-notice");
 let noticePreloadStats = noticeBlock.querySelector("#loading-status-notice");
@@ -80,6 +83,60 @@ function cssToRGBA(css) {
 
   return [m[0] / 255, m[1] / 255, m[2] / 255, m[3] ?? 1];
 }
+
+// --- NAMESPACE: drawFrames ---
+//
+const drawFrames = {
+  configs: {
+    animation1: {
+      frames: [],
+      frameData: {
+        filename: "anim1",
+        imageDir: "assets/drawFrames",
+        length: 4, // jumlah frame
+        ext: "png",
+        pad: 3, // bird-000.png (gampang diubah kalau mau)
+        start: 1, // mulai dari index terkecil
+      },
+      frameDuration: 700, // ms
+      _lastTime: 0,
+      _frameIndex: 0,
+    },
+  },
+
+  load(configName) {
+    const cfg = this.configs[configName];
+    const { filename, imageDir, length, ext, pad, start } = cfg.frameData;
+
+    cfg.frames.length = 0;
+
+    for (let i = 0; i < length; i++) {
+      const index = start + i;
+      const number = String(index).padStart(pad, "0");
+      const path = `${imageDir}/${filename}-${number}.${ext}`;
+      cfg.frames.push(loadImage(path));
+    }
+  },
+
+  draw(configName, w, h, x = 0, y = 0) {
+    const cfg = this.configs[configName];
+    if (!cfg || cfg.frames.length === 0) return;
+
+    const now = millis();
+
+    if (now - cfg._lastTime >= cfg.frameDuration) {
+      cfg._frameIndex = (cfg._frameIndex + 1) % cfg.frames.length;
+      cfg._lastTime = now;
+    }
+
+    const img = cfg.frames[cfg._frameIndex];
+
+    const drawW = w ?? img.width;
+    const drawH = h ?? img.height;
+
+    image(img, x, y, drawW, drawH);
+  },
+};
 
 // --- NAMESPACE: popTrailMotion ---
 window.popTrailMotion = {
@@ -666,6 +723,9 @@ async function setup() {
     }
   }
 
+  // 3. load frame untuk drawFrames
+  drawFrames.load("animation1");
+
   // pixelDensity(1);
   //
   //
@@ -770,6 +830,7 @@ function draw() {
   // strokeWeight(10);
   noStroke();
   rect(0, artworkDrawY, initialResolution.width, initialResolution.height);
+  drawFrames.draw("animation1", 1080, 1350, 0, artworkDrawY);
   // drawBackground(artworkDrawY);
   pop();
 
@@ -892,8 +953,8 @@ function draw() {
       circle(cursorX, cursorY, 30);
 
       // 2. Indikator Jari (Kotak Kecil) -> Di Webcam
-      rect(indexX, indexY, 20, 20);
-      rect(thumbX, thumbY, 20, 20);
+      rect(indexX, indexY, 15);
+      // rect(thumbX, thumbY, 20, 20);
 
       // 3. Process Input
       handleRightHandInput(indexX, indexY, thumbX, thumbY, cursorX, cursorY);
@@ -917,6 +978,33 @@ function draw() {
   popTrailMotion.draw(currentTime);
 
   handleMouseInput();
+
+  // =====
+  // infos
+  // ====
+  //
+  push();
+  if (recording) {
+    fill("red");
+    if (recorderInstance.paused) {
+      fill("yellow");
+    }
+    noStroke();
+    circle(
+      -1 * (webcamReferences.width / 2) + webcamReferences.width * 0.05,
+      videoDrawY - webcamReferences.height / 2 + webcamReferences.height * 0.05,
+      20,
+    );
+    // textSize(30);
+    // textFont("monospace");
+    // text(
+    //   `${recorderInstance.time.hours}:${recorderInstance.time.minutes}:${recorderInstance.time.seconds}`,
+    //   -1 * (webcamReferences.width / 2) + webcamReferences.width * 0.07,
+    //   videoDrawY - webcamReferences.height / 2 + webcamReferences.height * 0.065,
+    // );
+  }
+
+  pop();
 }
 
 function drawBackground(artworkDrawY) {
@@ -954,11 +1042,10 @@ window.recorderInstance = null;
 // };
 
 function canvasController() {
-  const controller = mainController.querySelector("#openControl");
-
-  controller.addEventListener("click", () => {
+  return new Promise((resolve, reject) => {
     if (popupController && !popupController.closed) {
-      popupController.focus();
+      // popupController.focus();
+      resolve(popupController);
       return;
     }
 
@@ -967,10 +1054,20 @@ function canvasController() {
       "controllerWindow",
       "width=300,height=800",
     );
+
+    if (!popupController) {
+      reject("Popup blocked");
+      return;
+    }
+
+    popupController.addEventListener("load", () => {
+      resolve(popupController);
+    });
   });
 }
 
-canvasController();
+const controller = mainController.querySelector("#openControl");
+controller.addEventListener("click", canvasController);
 
 function processTrailMouseInput(conf) {
   let m = trailBrushMotion;
@@ -1093,8 +1190,19 @@ function handleRightHandInput(
 
     // 3. PENTING: Kirim smoothX dan smoothY, BUKAN cursorX/cursorY
     processTrailHandInput(conf, smoothX, smoothY);
+
+    for (let c of cursorCirclesTrail) {
+      rect(c.x, c.y, c.r);
+    }
+
+    cursorCirclesTrail.push({
+      x: thumbX,
+      y: thumbY,
+      r: 15,
+    });
   } else {
     trailBrushMotion.isDrawing = false;
+    cursorCirclesTrail = [];
   }
 }
 function handleMouseInput() {
@@ -1139,7 +1247,7 @@ function reverseShortcut(motions, shortcut) {
   return results;
 }
 
-let startRecordPressed = false;
+// let startRecordPressed = false;
 let loopStatus = true;
 
 function keyPressed() {
@@ -1167,13 +1275,15 @@ function keyPressed() {
   }
 
   if (key.toLowerCase() == "r") {
-    if (startRecordPressed) {
-      saveRecording();
-      startRecordPressed = false;
-    } else {
-      record();
-      startRecordPressed = true;
-    }
+    canvasController().then(() => {
+      popupController.document.querySelector(".startRecord").click();
+    });
+  }
+
+  if (key.toLowerCase() == "s") {
+    canvasController().then(() => {
+      popupController.document.querySelector(".saveRecord").click();
+    });
   }
 
   if (key.toLowerCase() == "l") {
