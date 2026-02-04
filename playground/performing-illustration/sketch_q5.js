@@ -27,6 +27,7 @@ let webcamPosition = "TOP";
 
 //========================= ROI
 let cursorCirclesTrail = [];
+const maxCursorTrail = 50;
 
 //========================= dom
 let noticeBlock = document.getElementById("main-notice");
@@ -1229,25 +1230,23 @@ function handleRightHandInput(
     rect(c.x, c.y, c.r, c.r);
   }
 
-  setInterval(() => {
-    if (cursorCirclesTrail.length > 30) {
-      cursorCirclesTrail.shift();
-    }
-  }, 2000);
+  if (cursorCirclesTrail.length > maxCursorTrail) {
+    cursorCirclesTrail.shift();
+  }
 
   if (isHandPinching) {
+    cursorCirclesTrail.push({
+      x: indexX,
+      y: indexY,
+      r: drawSettings.squareSize,
+    });
+
     let conf =
       trailBrushMotion.configs[trailBrushMotion.usedConfig] ||
       trailBrushMotion.configs.letter;
 
     // 3. PENTING: Kirim smoothX dan smoothY, BUKAN cursorX/cursorY
     processTrailHandInput(conf, smoothX, smoothY);
-
-    cursorCirclesTrail.push({
-      x: indexX,
-      y: indexY,
-      r: drawSettings.squareSize,
-    });
   } else {
     trailBrushMotion.isDrawing = false;
 
