@@ -722,7 +722,6 @@ function gotHands(results) {
 //========================= q5 - setup()
 async function setup() {
   //------ artwork canvas setup
-  noLoop();
 
   artworkCanvas = createCanvas(
     initialResolution.width,
@@ -825,11 +824,13 @@ async function setup() {
   //
 
   recorderInstance = await createRecorder();
-  recorderInstance.style.display = "none";
+  // recorderInstance.style.display = "none";
+  recorderInstance.parent(mainController);
 }
 
 //=========================  q5 draw()
 function draw() {
+  // noLoop();
   background(backgroundColor);
 
   // frameRate(60);
@@ -1230,16 +1231,16 @@ function handleRightHandInput(
     rect(c.x, c.y, c.r, c.r);
   }
 
-  if (cursorCirclesTrail.length > maxCursorTrail) {
-    cursorCirclesTrail.shift();
-  }
-
   if (isHandPinching) {
     cursorCirclesTrail.push({
       x: indexX,
       y: indexY,
       r: drawSettings.squareSize,
     });
+
+    if (cursorCirclesTrail.length > maxCursorTrail) {
+      cursorCirclesTrail.shift();
+    }
 
     let conf =
       trailBrushMotion.configs[trailBrushMotion.usedConfig] ||
@@ -1250,7 +1251,7 @@ function handleRightHandInput(
   } else {
     trailBrushMotion.isDrawing = false;
 
-    // cursorCirclesTrail = [];
+    cursorCirclesTrail = [];
   }
 }
 
@@ -1317,16 +1318,20 @@ function keyPressed() {
     }
   }
 
-  if (key.toLowerCase() == "r") {
-    canvasController().then(() => {
-      popupController.document.querySelector(".startRecord").click();
-    });
+  if (key.toLowerCase() == "r" && !keyIsDown(CONTROL)) {
+    // canvasController().then(() => {
+    //   popupController.document.querySelector(".startRecord").click();
+    // });
+    //
+    record();
   }
 
-  if (key.toLowerCase() == "s") {
-    canvasController().then(() => {
-      popupController.document.querySelector(".saveRecord").click();
-    });
+  if (key.toLowerCase() == "s" && !keyIsDown(CONTROL)) {
+    // canvasController().then(() => {
+    //   popupController.document.querySelector(".saveRecord").click();
+    // });
+    saveRecording();
+    deleteRecording();
   }
 
   if (key.toLowerCase() == "l") {
