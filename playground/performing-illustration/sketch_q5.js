@@ -1,19 +1,34 @@
-//-- initializing Q5
-let webGPUMode = false;
+//========================= initializing Q5
+let webGPUMode = true;
 let initialResolution = { width: 1080, height: 1350 }; // artwork size before webcam and spacer
 let artworkCanvas;
+let _mouseX, _mouseY;
 
-//-- q5 webcam
+//========================= indicator
+let sketchColors = {
+  red: "red",
+  blue: "#4287f5",
+  orange: "#fcae6a",
+  gray1: "#dddddd",
+  gray2: "#8a8a8a",
+  gray3: "#636363",
+  grayblue: "#dddddd",
+  cream: "#e8da99",
+  toRGB01: function (color) {
+    return hexToRGB01(color);
+  },
+};
+
+//========================= q5 webcam
 let webcamHeightSpacer = 20;
 let webcamHeightPlus = 0;
 let webcamReferences;
 let webcamPosition = "TOP";
-let webcamBuffer;
 
-//--- ROI
+//========================= ROI
 let cursorCirclesTrail = [];
 
-//--- dom
+//========================= dom
 let noticeBlock = document.getElementById("main-notice");
 let noticePreloadStats = noticeBlock.querySelector("#loading-status-notice");
 let pageTitle = document.title;
@@ -21,18 +36,44 @@ let mainCanvas = document.getElementById("main-canvas");
 let mainController = document.getElementById("main-controller");
 let popupController = null;
 let recordElement;
+let controller = mainController.querySelector("#openControl");
+controller.addEventListener("click", canvasController);
 
-//-- q5 draw
-let strokeWeightSize = 5;
-let backgroundImage;
+//========================= q5 draw
+let strokeSize = 5;
+let loopStatus = true;
+let motionsList = {};
 
-//----  q5 -> ml5 config
+let drawSettings = {
+  strokeSize: 5,
+  squareSize: 15,
+  artworkCursor: true,
+};
+
+//========================= q5 -> ml5 config
 let handPose;
 let hands = [];
 
-//--- q5 bg + dom bg
-let backgroundColor = "#dddddd";
+//========================= q5 bg + dom bg
+let backgroundColor = sketchColors.gray2;
 document.body.style.backgroundColor = backgroundColor;
+
+//========================= q5 recorder
+window.recorderInstance = null;
+
+//========================= q5 pinch gesture
+let isHandPinching = false; // State untuk hysteresis
+// Variabel untuk menyimpan posisi halus
+let smoothX = 0;
+let smoothY = 0;
+// Config seberapa "berat/delay" gerakannya
+// 0.05 = Sangat smooth & lambat (delay kerasa banget, kayak 1 detik)
+// 0.1  = Medium
+// 0.5  = Cepat (hampir nempel tangan)
+let easingFactor = 0.1;
+let hasHandHistory = true; // Supaya gak ada garis kaget dari 0,0 pas awal
+
+//========================= initializing Q5
 
 initQ5();
 
@@ -67,26 +108,36 @@ async function initQ5() {
     Q5.experimental = true;
     // start writing webGPU shader here...
     //======================================
+    //
+    monotoneShader = await createVideoShader(`
+      fn screen(base: vec3f, blend: vec3f) -> vec3f {
+        return 1.0 - (1.0 - base) * (1.0 - blend);
+      }
+
+      @fragment
+      fn fragMain(f: FragParams) -> @location(0) vec4f {
+        let src = textureSampleBaseClampToEdge(tex, samp, f.texCoord);
+
+        let lum = dot(src.rgb, vec3f(0.299, 0.587, 0.114));
+        let gray = vec3f(lum);
+
+        // sketchColors.blue = #4287f5
+        let fillColor = vec3f(
+          66.0 / 255.0,
+          135.0 / 255.0,
+          245.0 / 255.0
+        );
+
+        let result = screen(gray, fillColor);
+        return vec4f(result, src.a);
+      }
+
+    `);
   }
 }
 
-//======================================
-// fix kode webGPU coordinate system ke canvas2d coord system
-//======================================
-let _mouseX, _mouseY;
-
-function cssToRGBA(css) {
-  const m = css
-    .match(/rgba?\(([^)]+)\)/)[1]
-    .split(",")
-    .map((v) => parseFloat(v));
-
-  return [m[0] / 255, m[1] / 255, m[2] / 255, m[3] ?? 1];
-}
-
-// --- NAMESPACE: drawFrames ---
-//
-const drawFrames = {
+//========================= drawFrames / animaiton
+window.drawFrames = {
   configs: {
     animation1: {
       frames: [],
@@ -104,17 +155,17 @@ const drawFrames = {
     },
   },
 
-  load(configName) {
-    const cfg = this.configs[configName];
-    const { filename, imageDir, length, ext, pad, start } = cfg.frameData;
+  fetchConfig: function () {
+    for (let key in drawFrames.configs) {
+      let conf = drawFrames.configs[key];
 
-    cfg.frames.length = 0;
+      for (let i = 0; i < conf.frameData.length; i++) {
+        const index = conf.frameData.start + i;
+        const number = String(index).padStart(conf.frameData.pad, "0");
+        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
 
-    for (let i = 0; i < length; i++) {
-      const index = start + i;
-      const number = String(index).padStart(pad, "0");
-      const path = `${imageDir}/${filename}-${number}.${ext}`;
-      cfg.frames.push(loadImage(path));
+        conf.frames.push(loadImage(path));
+      }
     }
   },
 
@@ -138,7 +189,7 @@ const drawFrames = {
   },
 };
 
-// --- NAMESPACE: popTrailMotion ---
+//=========================  poptrailmotions
 window.popTrailMotion = {
   boxes: [],
   activeEmitters: [], // Melacak "Kepala" yang sedang terbang
@@ -148,14 +199,21 @@ window.popTrailMotion = {
   configs: {
     butterfly: {
       frames: [],
-      frameData: { filename: "bird", length: 6, ext: "png" }, // Pakai bird sebagai contoh
+      frameData: {
+        filename: "bird",
+        imageDir: "assets/motions",
+        length: 6,
+        ext: "png",
+        pad: 3,
+        start: 1,
+      }, // Pakai bird sebagai contoh
       boxWidth: 60,
       spacing: 40,
       baseLifeTime: 1000,
       maxLifeTime: 6000,
       boxStrokeWeight: 10,
-      boxStrokeColor: "#000000",
-      boxFillColor: "#ffffff",
+      boxStrokeColor: "black",
+      boxFillColor: "white",
       imageLifeTimeDelay: -800,
       animationSpeed: 150,
       boxOverlapSize: 0.3,
@@ -167,14 +225,21 @@ window.popTrailMotion = {
     },
     butterfly2: {
       frames: [],
-      frameData: { filename: "bird", length: 6, ext: "png" }, // Pakai bird sebagai contoh
+      frameData: {
+        filename: "bird",
+        imageDir: "assets/motions",
+        length: 6,
+        ext: "png",
+        pad: 3,
+        start: 1,
+      }, // Pakai bird sebagai contoh
       boxWidth: 60,
       spacing: 40,
       baseLifeTime: 1000,
       maxLifeTime: 6000,
       boxStrokeWeight: 10,
-      boxStrokeColor: "#000000",
-      boxFillColor: "#dddddd",
+      boxStrokeColor: "white",
+      boxFillColor: "black",
       imageLifeTimeDelay: -800,
       animationSpeed: 150,
       boxOverlapSize: 0.3,
@@ -184,26 +249,21 @@ window.popTrailMotion = {
       noiseScale: 0.03, //0.005, // Kelenturan belokan (semakin kecil semakin lurus)
       shortcut: "5",
     },
-    butterfly3: {
-      frames: [],
-      frameData: { filename: "bird", length: 6, ext: "png" }, // Pakai bird sebagai contoh
-      boxWidth: 60,
-      spacing: 40,
-      baseLifeTime: 1000,
-      maxLifeTime: 6000,
-      boxStrokeWeight: 10,
-      boxStrokeColor: "#000000",
-      boxFillColor: "#e8da99",
-      imageLifeTimeDelay: -800,
-      animationSpeed: 150,
-      boxOverlapSize: 0.3,
-      pauseBoxBefore: false,
-      easing: "size", // Tambahan khusus popTrail
-      moveSpeed: 2, // Kecepatan terbang
-      noiseScale: 0.03, //0.005, // Kelenturan belokan (semakin kecil semakin lurus)
-      shortcut: "6",
-    },
   }, // Fungsi untuk memicu kemunculan baru (Panggil ini dari handleInput)
+
+  fetchConfig: async function () {
+    for (let key in popTrailMotion.configs) {
+      let conf = popTrailMotion.configs[key];
+
+      for (let i = 0; i < conf.frameData.length; i++) {
+        const index = conf.frameData.start + i;
+        const number = String(index).padStart(conf.frameData.pad, "0");
+        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
+
+        conf.frames.push(loadImage(path));
+      }
+    }
+  },
 
   trigger: function (confName) {
     let conf = this.configs[confName];
@@ -376,8 +436,7 @@ window.popTrailMotion = {
   },
 };
 
-// --- NAMESPACE: trailBrushMotion ---
-// Semua variabel dan fungsi terkait animasi box/trail dibungkus di sini
+//========================= trailBrushMoion
 window.trailBrushMotion = {
   boxes: [],
   frameIndex: 0,
@@ -389,14 +448,21 @@ window.trailBrushMotion = {
   configs: {
     bird: {
       frames: [],
-      frameData: { filename: "bird", length: 6, ext: "png" },
+      frameData: {
+        filename: "bird",
+        imageDir: "assets/motions",
+        length: 6,
+        ext: "png",
+        pad: 3,
+        start: 1,
+      },
       boxWidth: 80,
       spacing: 80,
       baseLifeTime: 200,
       maxLifeTime: 6000,
       boxStrokeWeight: 8,
-      boxStrokeColor: "#000000",
-      boxFillColor: "#e8da99",
+      boxStrokeColor: "black",
+      boxFillColor: sketchColors.cream,
       imageLifeTimeDelay: -100,
       animationSpeed: 200,
       boxOverlapSize: 0.5,
@@ -406,14 +472,21 @@ window.trailBrushMotion = {
     },
     bird2: {
       frames: [],
-      frameData: { filename: "bird", length: 6, ext: "png" },
+      frameData: {
+        filename: "bird",
+        imageDir: "assets/motions",
+        length: 6,
+        ext: "png",
+        pad: 3,
+        start: 1,
+      },
       boxWidth: 80,
       spacing: 80,
       baseLifeTime: 400,
       maxLifeTime: 6000,
       boxStrokeWeight: 0,
-      boxStrokeColor: cssToRGBA("rgba(255,255,255,0)"),
-      boxFillColor: cssToRGBA("rgba(255,255,255,0)"),
+      boxStrokeColor: cssToRGBA("rgba(255,255,255,0.5)"),
+      boxFillColor: cssToRGBA("rgba(0,0,0,0.5)"),
       imageLifeTimeDelay: -100,
       animationSpeed: 200,
       boxOverlapSize: 0.5,
@@ -423,13 +496,20 @@ window.trailBrushMotion = {
     },
     letter: {
       frames: [],
-      frameData: { filename: "frame", length: 8, ext: "png" },
+      frameData: {
+        filename: "frame",
+        imageDir: "assets/motions",
+        length: 8,
+        ext: "png",
+        pad: 3,
+        start: 1,
+      },
       boxWidth: 80,
       spacing: 80,
       baseLifeTime: 400,
       maxLifeTime: 5000,
       boxStrokeWeight: 10,
-      boxStrokeColor: "#000000",
+      boxStrokeColor: "black",
       boxFillColor: "white",
       imageLifeTimeDelay: -100,
       animationSpeed: 200,
@@ -439,6 +519,21 @@ window.trailBrushMotion = {
       shortcut: "3",
     }, // Kamu bisa tambah preset lain khusus untuk trailBrushMotion di sini
   }, // Method Utama untuk Siklus Hidup
+
+  fetchConfig: async function () {
+    for (let key in trailBrushMotion.configs) {
+      let conf = trailBrushMotion.configs[key];
+
+      for (let i = 0; i < conf.frameData.length; i++) {
+        const index = conf.frameData.start + i;
+        const number = String(index).padStart(conf.frameData.pad, "0");
+        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
+
+        conf.frames.push(loadImage(path));
+      }
+    }
+  },
+
   update: function (currentTime) {
     while (
       this.boxes.length > 0 &&
@@ -599,12 +694,31 @@ window.trailBrushMotion = {
   },
 };
 
+//========================= cssToRGBA helper
+function cssToRGBA(css) {
+  const m = css
+    .match(/rgba?\(([^)]+)\)/)[1]
+    .split(",")
+    .map((v) => parseFloat(v));
+
+  return [m[0] / 255, m[1] / 255, m[2] / 255, m[3] ?? 1];
+}
+
+function hexToRGB01(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  return [r, g, b];
+}
+
+//========================= ml5.js gothands
 function gotHands(results) {
   // Save the output to the hands variable
   hands = results;
   // console.log(hands);
 }
 
+//========================= q5 - setup()
 async function setup() {
   //------ artwork canvas setup
   noLoop();
@@ -646,7 +760,7 @@ async function setup() {
   }
 
   artworkCanvas.style.borderRadius = "50px";
-  artworkCanvas.style.border = "2px solid #666666";
+  artworkCanvas.style.border = "2px solid " + sketchColors.gray3;
 
   // setelah akses kamera selesai
   noticeBlock.querySelector(
@@ -684,8 +798,6 @@ async function setup() {
   //   // resizeCanvas(cam.width, cam.height);
   // };
 
-  backgroundImage = loadImage("../images/bg_1080_1350.png"); // Load frames untuk semua preset di dalam trailBrushMotion
-
   //----- all canvas configuration
   imageMode(CENTER);
   rectMode(CENTER);
@@ -694,37 +806,17 @@ async function setup() {
   loop();
 
   // 1. Load frames untuk trailBrushMotion (PENTING!)
-  for (let key in trailBrushMotion.configs) {
-    let conf = trailBrushMotion.configs[key];
+  trailBrushMotion
+    .fetchConfig()
+    .then((motionsList["trailBrushMotion"] = trailBrushMotion));
 
-    for (let i = 1; i <= conf.frameData.length; i++) {
-      conf.frames.push(
-        loadImage(
-          `../images/${conf.frameData.filename}-${i}.${conf.frameData.ext}`,
-        ),
-      );
-    }
+  // // 2. Load frames untuk popTrailMotion (PENTING!)
+  popTrailMotion
+    .fetchConfig()
+    .then((motionsList["popTrailMotion"] = popTrailMotion));
 
-    // recorderInstance = await createRecorder();
-    // recorderInstance.style.display = "none";
-  }
-
-  // 2. Load frames untuk popTrailMotion (PENTING!)
-
-  for (let key in popTrailMotion.configs) {
-    let conf = popTrailMotion.configs[key];
-    conf.frames = []; // Pastikan array kosong sebelum push
-    for (let i = 1; i <= conf.frameData.length; i++) {
-      conf.frames.push(
-        loadImage(
-          `../images/${conf.frameData.filename}-${i}.${conf.frameData.ext}`,
-        ),
-      );
-    }
-  }
-
-  // 3. load frame untuk drawFrames
-  drawFrames.load("animation1");
+  // // 3. load frame untuk drawFrames
+  drawFrames.fetchConfig();
 
   // pixelDensity(1);
   //
@@ -735,48 +827,11 @@ async function setup() {
   recorderInstance.style.display = "none";
 }
 
-function drawWebcamCover(
-  video,
-  x,
-  y,
-  tw = initialResolution.width,
-  th = webcamReferences.height + webcamHeightPlus,
-) {
-  if (!video || video.width === 0) return;
-
-  // abaikan portrait
-  if (video.width < video.height) return;
-
-  const srcRatio = video.width / video.height;
-  const dstRatio = tw / th;
-
-  let sx = 0,
-    sy = 0,
-    sw = video.width,
-    sh = video.height;
-
-  if (srcRatio > dstRatio) {
-    // source terlalu lebar → crop kiri-kanan
-    sw = video.height * dstRatio;
-    sx = (video.width - sw) * 0.5;
-  } else {
-    // source terlalu tinggi → crop atas-bawah
-    sh = video.width / dstRatio;
-    sy = (video.height - sh) * 0.5;
-  }
-
-  image(video, x, y, tw, th, sx, sy, sw, sh);
-}
-
-// ==========================================
-// REPLACE YOUR EXISTING draw() FUNCTION
-// ==========================================
-
+//=========================  q5 draw()
 function draw() {
   background(backgroundColor);
 
   // frameRate(60);
-
   // document.title = "FPS: " + getFPS() + " / " + pageTitle;
 
   // ==========================================================
@@ -825,13 +880,12 @@ function draw() {
   // 2. DRAW ARTWORK DEBUG (Opsional / Background layer)
   // ==========================================================
   push();
-  fill("#ccdde8");
+  fill(sketchColors.grayblue);
   // stroke("white");
   // strokeWeight(10);
   noStroke();
   rect(0, artworkDrawY, initialResolution.width, initialResolution.height);
   drawFrames.draw("animation1", 1080, 1350, 0, artworkDrawY);
-  // drawBackground(artworkDrawY);
   pop();
 
   // ==========================================================
@@ -840,20 +894,9 @@ function draw() {
 
   // A. Gambar Webcam Feed sesuai posisi dinamis
   push();
-  // shader(monotoneShader);
-  //
-
-  drawWebcamCover(webcamReferences, 0, videoDrawY);
-
-  // image(
-  //   webcamReferences,
-  //   0,
-  //   videoDrawY, // <--- Menggunakan variabel dinamis
-  //   webcamReferences.width,
-  //   webcamReferences.height,
-  // );
 
   if (!webGPUMode) {
+    drawWebcamCover(webcamReferences, 0, videoDrawY);
     fill("black");
     noStroke();
     blendMode("saturation");
@@ -864,7 +907,7 @@ function draw() {
       webcamReferences.height + webcamHeightPlus,
     );
 
-    fill("#4287f5");
+    fill(sketchColors.blue);
     noStroke();
     blendMode("screen");
     rect(
@@ -873,9 +916,12 @@ function draw() {
       initialResolution.width, //webcamReferences.width,
       webcamReferences.height + webcamHeightPlus, // webcamReferences.height,
     );
+  } else {
+    shader(monotoneShader);
+    drawWebcamCover(webcamReferences, 0, videoDrawY);
+    resetVideoShader();
   }
 
-  // resetImageShader();
   pop();
 
   // B. Hitung ROI (Area kotak kuning)
@@ -888,11 +934,16 @@ function draw() {
   // C. Gambar Debug ROI (Kotak Kuning)
   push();
   noFill();
-  stroke("white");
+  stroke(sketchColors.orange);
 
-  strokeWeight(strokeWeightSize);
+  strokeWeight(drawSettings.strokeSize);
   // Kotak kuning harus ikut pindah sesuai posisi webcam (videoDrawY)
-  rect(0, videoDrawY, roiW - strokeWeightSize - 2, roiH - strokeWeightSize - 2);
+  rect(
+    0,
+    videoDrawY,
+    roiW - drawSettings.strokeSize - 2,
+    roiH - drawSettings.strokeSize - 2,
+  );
   pop();
 
   // ==========================================================
@@ -946,25 +997,28 @@ function draw() {
     // --- C. RENDER CURSOR & VISUAL ---
 
     if (hand.handedness === "Right") {
-      fill("white");
+      fill(sketchColors.orange);
       noStroke();
 
       // 1. Cursor Utama (Bola Besar) -> Di Artwork
-      circle(cursorX, cursorY, 30);
+      if (drawSettings.artworkCursor) {
+        rect(
+          cursorX,
+          cursorY,
+          drawSettings.squareSize,
+          drawSettings.squareSize,
+        );
+      }
 
       // 2. Indikator Jari (Kotak Kecil) -> Di Webcam
-      rect(indexX, indexY, 15);
+      rect(indexX, indexY, drawSettings.squareSize, drawSettings.squareSize);
       // rect(thumbX, thumbY, 20, 20);
 
       // 3. Process Input
       handleRightHandInput(indexX, indexY, thumbX, thumbY, cursorX, cursorY);
     }
     // else if (hand.handedness === "Left") {
-    //   fill("white");
-    //   noStroke();
-    //   circle(cursorX, cursorY, 30); // Di Artwork
-    //   rect(indexX, indexY, 20, 20); // Di Webcam
-    //   rect(thumbX, thumbY, 20, 20); // Di Webcam
+
     // }
   }
 
@@ -985,62 +1039,63 @@ function draw() {
   //
   push();
   if (recording) {
-    fill("red");
+    fill(sketchColors.red);
     if (recorderInstance.paused) {
-      fill("yellow");
+      fill(sketchColors.orange);
     }
     noStroke();
     circle(
-      -1 * (webcamReferences.width / 2) + webcamReferences.width * 0.05,
-      videoDrawY - webcamReferences.height / 2 + webcamReferences.height * 0.05,
-      20,
+      -1 * (initialResolution.width / 2) + initialResolution.width * 0.05,
+      videoDrawY - webcamReferences.height / 2 + webcamReferences.height * 0.08,
+      drawSettings.squareSize,
     );
     // textSize(30);
     // textFont("monospace");
     // text(
     //   `${recorderInstance.time.hours}:${recorderInstance.time.minutes}:${recorderInstance.time.seconds}`,
     //   -1 * (webcamReferences.width / 2) + webcamReferences.width * 0.07,
-    //   videoDrawY - webcamReferences.height / 2 + webcamReferences.height * 0.065,
+    //   videoDrawY - webcamReferences.height / 2 + webcamReferences.height * 0.9,
     // );
   }
 
   pop();
 }
 
-function drawBackground(artworkDrawY) {
-  if (backgroundImage) {
-    push();
-    // imageMode(CENTER);
+//=========================  q5 draw() -> drawWebcamCover
+function drawWebcamCover(
+  video,
+  x,
+  y,
+  tw = initialResolution.width,
+  th = webcamReferences.height + webcamHeightPlus,
+) {
+  if (!video || video.width === 0) return;
 
-    // translate(-width / 2, -height / 2);
-    image(
-      backgroundImage,
-      0,
-      artworkDrawY,
-      backgroundImage.w, // bisa aja artworkCanvas.w
-      (backgroundImage.height / backgroundImage.width) * backgroundImage.w,
-    );
+  // abaikan portrait
+  if (video.width < video.height) return;
 
-    pop();
+  const srcRatio = video.width / video.height;
+  const dstRatio = tw / th;
+
+  let sx = 0,
+    sy = 0,
+    sw = video.width,
+    sh = video.height;
+
+  if (srcRatio > dstRatio) {
+    // source terlalu lebar → crop kiri-kanan
+    sw = video.height * dstRatio;
+    sx = (video.width - sw) * 0.5;
+  } else {
+    // source terlalu tinggi → crop atas-bawah
+    sh = video.width / dstRatio;
+    sy = (video.height - sh) * 0.5;
   }
+
+  image(video, x, y, tw, th, sx, sy, sw, sh);
 }
 
-window.recorderInstance = null;
-
-// window.onPopupReady = async () => {
-//   const root = popupController.document.getElementById("popup-controller");
-
-//   // if (!recorderInstance) {
-//   //   console.log("🎥 create recorder (once)");
-//   // } else {
-//   //   console.log("♻️ reuse recorder");
-//   // }
-
-//   // recorderInstance.parent(root);
-//   // recorderInstance.style.display = "unset";
-//   //
-// };
-
+//========================= canvasController
 function canvasController() {
   return new Promise((resolve, reject) => {
     if (popupController && !popupController.closed) {
@@ -1066,9 +1121,7 @@ function canvasController() {
   });
 }
 
-const controller = mainController.querySelector("#openControl");
-controller.addEventListener("click", canvasController);
-
+//========================= processTrailMouseInput
 function processTrailMouseInput(conf) {
   let m = trailBrushMotion;
   if (!m.isDrawing) {
@@ -1094,19 +1147,7 @@ function processTrailMouseInput(conf) {
   }
 }
 
-let isHandPinching = false; // State untuk hysteresis
-// Variabel untuk menyimpan posisi halus
-let smoothX = 0;
-let smoothY = 0;
-
-// Config seberapa "berat/delay" gerakannya
-// 0.05 = Sangat smooth & lambat (delay kerasa banget, kayak 1 detik)
-// 0.1  = Medium
-// 0.5  = Cepat (hampir nempel tangan)
-let easingFactor = 0.1;
-
-let hasHandHistory = true; // Supaya gak ada garis kaget dari 0,0 pas awal
-
+//========================= processTrailHandInput
 function processTrailHandInput(conf, inputX, inputY) {
   // inputX/Y di sini adalah smoothX/Y
   let m = trailBrushMotion;
@@ -1148,6 +1189,7 @@ function processTrailHandInput(conf, inputX, inputY) {
   }
 }
 
+//========================= handleRightHandInput
 function handleRightHandInput(
   indexX,
   indexY,
@@ -1169,7 +1211,7 @@ function handleRightHandInput(
   smoothY = lerp(smoothY, cursorY, easingFactor);
 
   // Debug Visual (Opsional):
-  // fill("#4287f5"); circle(smoothX, smoothY, 15); // Lihat bedanya bola biru (smooth) vs merah (asli)
+  // fill(sketchColors.grayblue); circle(smoothX, smoothY, 15); // Lihat bedanya bola biru (smooth) vs merah (asli)
 
   let indexAndThumbDistance = dist(indexX, indexY, thumbX, thumbY);
 
@@ -1192,19 +1234,21 @@ function handleRightHandInput(
     processTrailHandInput(conf, smoothX, smoothY);
 
     for (let c of cursorCirclesTrail) {
-      rect(c.x, c.y, c.r);
+      rect(c.x, c.y, c.r, c.r);
     }
 
     cursorCirclesTrail.push({
       x: thumbX,
       y: thumbY,
-      r: 15,
+      r: drawSettings.squareSize,
     });
   } else {
     trailBrushMotion.isDrawing = false;
     cursorCirclesTrail = [];
   }
 }
+
+//========================= handleMouseInput
 function handleMouseInput() {
   if (mouseIsPressed && mouseButton === LEFT) {
     if (trailBrushMotion.configs[trailBrushMotion.usedConfig]) {
@@ -1219,11 +1263,7 @@ function handleMouseInput() {
   }
 }
 
-const motions = {
-  trailBrushMotion,
-  popTrailMotion,
-};
-
+//========================= shortcut & helper
 function reverseShortcut(motions, shortcut) {
   const results = [];
 
@@ -1247,9 +1287,6 @@ function reverseShortcut(motions, shortcut) {
   return results;
 }
 
-// let startRecordPressed = false;
-let loopStatus = true;
-
 function keyPressed() {
   // Fungsi ini hanya jalan 1x setiap kali tombol ditekan
   //
@@ -1258,9 +1295,9 @@ function keyPressed() {
   // }
 
   if (key) {
-    let shortcutPressed = reverseShortcut(motions, key);
+    let shortcutPressed = reverseShortcut(motionsList, key);
     // console.log(shortcutPressed[0]);
-    if (reverseShortcut(motions, key).length !== 0) {
+    if (reverseShortcut(motionsList, key).length !== 0) {
       switch (shortcutPressed[0].source) {
         case "popTrailMotion":
           popTrailMotion.trigger(shortcutPressed[0].config);
@@ -1295,9 +1332,6 @@ function keyPressed() {
       loopStatus = true;
     }
   }
-
-  // console.log(key);
-  // console.log(reverseShortcut(motions, key));
 }
 
 function changeBackgroundColor(color) {
