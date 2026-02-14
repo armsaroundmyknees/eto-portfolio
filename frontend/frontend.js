@@ -46,13 +46,16 @@ async function initializeLayout() {
       contents_masonry = new Masonry(contents, {
         // options
         itemSelector: ".item",
-        // columnWidth: 0,
         percentPosition: true,
         gutter: 20,
         // transitionDuration: "0.5s",
         //   stagger: 30,
         initLayout: true,
       });
+
+      // contents_masonry = new MiniMasonry({
+      //   container: "#contents.columns-2",
+      // });
 
       loadVideo();
     });
@@ -86,7 +89,7 @@ function loadVideo() {
       img.width,
       img.dataset.video,
       img.alt,
-      img.src
+      img.src,
     );
 
     // Kalau sudah siap dimainkan, ganti <img> dengan <video>
@@ -141,7 +144,7 @@ function imageViewAct(contentClicked) {
 
   // remove previous elemets
   let itemFullscreenView = document.getElementsByClassName(
-    "item-fullscreen-view"
+    "item-fullscreen-view",
   )[0];
   //
   if (itemFullscreenView) {
@@ -172,7 +175,7 @@ function imageViewAct(contentClicked) {
       null,
       contentClicked.children[0].src,
       contentClicked.dataset.alt,
-      contentClicked.poster
+      contentClicked.poster,
     );
 
     //
@@ -184,7 +187,7 @@ function imageViewAct(contentClicked) {
       "item-fullscreen-view",
       contentClicked.width,
       contentClicked.src,
-      contentClicked.alt
+      contentClicked.alt,
     );
     //
     imageView.children[0].prepend(video);
@@ -220,7 +223,7 @@ function makeVideoElement(
   videoWidth,
   videoURL,
   videoAlt,
-  videoPoster
+  videoPoster,
 ) {
   const video = document.createElement("video");
   video.classList.add(videoClassName);
@@ -267,14 +270,14 @@ document.body.addEventListener("click", (element) => {
   let clickedElement = element.target;
 
   // console.log(clickedElement);
+  // console.log(clickedElement);
 
-  if (
-    // clickedElement.classList.contains("item-cover") ||
-    clickedElement.classList.contains("see-more-links") ||
-    clickedElement.parentElement.classList.contains("navigation-links") ||
-    clickedElement.classList.contains("notice-back-link")
-  ) {
+  if (clickedElement.hash == "#soon") {
     element.preventDefault();
     document.getElementById("notice").classList.toggle("show");
-  }
+  } else if (clickedElement.className == "author-name") {
+    window.location = "/";
+  } else return;
 });
+
+let debugVar;
