@@ -174,6 +174,7 @@ window.trailBrushMotionBitmap = {
   boxes: [],
   frameIndex: 0,
   usedConfig: "bird",
+  blacklistArea: [[-300, -300, 160, 200]],
 
   configs: {
     bird: {
@@ -225,7 +226,7 @@ window.trailBrushMotionBitmap = {
         const index = conf.frameData.start + i;
         const number = String(index).padStart(conf.frameData.pad, "0");
 
-        const basePath = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
+        const basePath = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}.${conf.frameData.ext}`;
 
         const img = loadImage(basePath);
         conf.frames.push(img);
@@ -235,7 +236,7 @@ window.trailBrushMotionBitmap = {
           let bgStack = [];
 
           for (let b = 0; b < (conf.maxBackground || 0); b++) {
-            const bgPath = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}_bg${b}.${conf.frameData.ext}`;
+            const bgPath = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}_bg${b}.${conf.frameData.ext}`;
 
             let bgImg = loadImage(
               bgPath,
@@ -299,6 +300,8 @@ window.trailBrushMotionBitmap = {
     // ============================================
     for (let bgIndex = 0; bgIndex < maxBG; bgIndex++) {
       for (let b of boxes) {
+        if (this.isInBlacklist(b.x, b.y)) continue;
+
         let age = currentTime - b.born;
 
         // --- LOGIKA BACKGROUND: Menggunakan base duration murni ---
@@ -366,6 +369,8 @@ window.trailBrushMotionBitmap = {
 
   // ===============================
   spawnBox: function (x, y, conf) {
+    if (this.isInBlacklist(x, y)) return;
+
     let img = conf.frames[this.frameIndex % conf.frames.length];
     if (!img) return;
 
@@ -448,6 +453,40 @@ window.trailBrushMotionBitmap = {
     return b.frozenFrame !== null ? b.frozenFrame : b.startFrame;
   },
 
+  isInBlacklist: function (x, y) {
+    if (!this.blacklistArea) return false;
+
+    for (let area of this.blacklistArea) {
+      let [x1, y1, x2, y2] = area;
+
+      // convert artwork → canvas
+
+      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+        return true;
+      }
+    }
+
+    return false;
+  },
+
+  debugBlacklist: function () {
+    noFill();
+    strokeWeight(7);
+    stroke(0, 0, 0);
+
+    for (let area of this.blacklistArea) {
+      let [x1, y1, x2, y2] = area;
+
+      let w = x2 - x1;
+      let h = y2 - y1;
+
+      let cx = x1 + w * 0.5;
+      let cy = y1 + h * 0.5;
+
+      rect(cx, cy, w, h);
+    }
+  },
+
   utils: {
     easeOutBack: (x) => {
       const c1 = 1.70158;
@@ -464,91 +503,87 @@ window.trailBrushMotionBitmap = {
 //========================= drawFrames / animaiton
 window.drawFrames = {
   configs: {
-    _5_daun: {
-      frames: [],
-      frameData: {
-        filename: "5_daun",
-        imageDir: "assets/drawFrames",
-        length: 1, // jumlah frame
-        ext: "png",
-        pad: 3, // bird-000.png (gampang diubah kalau mau)
-        start: 1, // mulai dari index terkecil
-      },
-      frameDuration: 700, // ms
-      _lastTime: 0,
-      _frameIndex: 0,
-    },
-
-    _4_bunga: {
-      frames: [],
-      frameData: {
-        filename: "4_bunga",
-        imageDir: "assets/drawFrames",
-        length: 1, // jumlah frame
-        ext: "png",
-        pad: 3, // bird-000.png (gampang diubah kalau mau)
-        start: 1, // mulai dari index terkecil
-      },
-      frameDuration: 700, // ms
-      _lastTime: 0,
-      _frameIndex: 0,
-    },
-
-    _3_daun: {
-      frames: [],
-      frameData: {
-        filename: "3_daun",
-        imageDir: "assets/drawFrames",
-        length: 1, // jumlah frame
-        ext: "png",
-        pad: 3, // bird-000.png (gampang diubah kalau mau)
-        start: 1, // mulai dari index terkecil
-      },
-      frameDuration: 700, // ms
-      _lastTime: 0,
-      _frameIndex: 0,
-    },
-
-    _2_soul: {
-      frames: [],
-      frameData: {
-        filename: "2_soul",
-        imageDir: "assets/drawFrames",
-        length: 1, // jumlah frame
-        ext: "png",
-        pad: 3, // bird-000.png (gampang diubah kalau mau)
-        start: 1, // mulai dari index terkecil
-      },
-      frameDuration: 700, // ms
-      _lastTime: 0,
-      _frameIndex: 0,
-    },
-
-    _1b_rope: {
-      frames: [],
-      frameData: {
-        filename: "1b_rope",
-        imageDir: "assets/drawFrames",
-        length: 1, // jumlah frame
-        ext: "png",
-        pad: 3, // bird-000.png (gampang diubah kalau mau)
-        start: 1, // mulai dari index terkecil
-      },
-      frameDuration: 700, // ms
-      _lastTime: 0,
-      _frameIndex: 0,
-    },
     _1_bg: {
       frames: [],
       frameData: {
         filename: "1_bg",
         imageDir: "assets/drawFrames",
-        length: 1, // jumlah frame
+        length: 5, // jumlah frame
         ext: "png",
         pad: 3, // bird-000.png (gampang diubah kalau mau)
         start: 1, // mulai dari index terkecil
       },
-      frameDuration: 700, // ms
+      frameDuration: 150, // ms
+      _lastTime: 0,
+      _frameIndex: 0,
+    },
+    _2_rope: {
+      frames: [],
+      frameData: {
+        filename: "2_rope",
+        imageDir: "assets/drawFrames",
+        length: 5, // jumlah frame
+        ext: "png",
+        pad: 3, // bird-000.png (gampang diubah kalau mau)
+        start: 1, // mulai dari index terkecil
+      },
+      frameDuration: 150, // ms
+      _lastTime: 0,
+      _frameIndex: 0,
+    },
+    _3_soul: {
+      frames: [],
+      frameData: {
+        filename: "3_soul",
+        imageDir: "assets/drawFrames",
+        length: 5, // jumlah frame
+        ext: "png",
+        pad: 3, // bird-000.png (gampang diubah kalau mau)
+        start: 1, // mulai dari index terkecil
+      },
+      frameDuration: 150, // ms
+      _lastTime: 0,
+      _frameIndex: 0,
+    },
+    _4_bunga: {
+      frames: [],
+      frameData: {
+        filename: "4_bunga",
+        imageDir: "assets/drawFrames",
+        length: 5, // jumlah frame
+        ext: "png",
+        pad: 3, // bird-000.png (gampang diubah kalau mau)
+        start: 1, // mulai dari index terkecil
+      },
+      frameDuration: 150, // ms
+      _lastTime: 0,
+      _frameIndex: 0,
+    },
+    _5_bunga: {
+      frames: [],
+      frameData: {
+        filename: "5_bunga",
+        imageDir: "assets/drawFrames",
+        length: 5, // jumlah frame
+        ext: "png",
+        pad: 3, // bird-000.png (gampang diubah kalau mau)
+        start: 1, // mulai dari index terkecil
+      },
+      frameDuration: 150, // ms
+      _lastTime: 0,
+      _frameIndex: 0,
+    },
+    textures: {
+      frames: [],
+      frameData: {
+        filename: "textures",
+        imageDir: "assets/drawFrames",
+        length: 5, // jumlah frame
+        ext: "png",
+        pad: 3, // bird-000.png (gampang diubah kalau mau)
+        start: 1, // mulai dari index terkecil
+      },
+      frameDuration: 150, // ms
       _lastTime: 0,
       _frameIndex: 0,
     },
@@ -561,7 +596,7 @@ window.drawFrames = {
       for (let i = 0; i < conf.frameData.length; i++) {
         const index = conf.frameData.start + i;
         const number = String(index).padStart(conf.frameData.pad, "0");
-        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
+        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}.${conf.frameData.ext}`;
 
         conf.frames.push(loadImage(path));
       }
@@ -593,12 +628,13 @@ window.popTrailMotion = {
   activeEmitters: [],
   boxes: [],
   frameIndex: 0,
+  blacklistArea: [[-300, -300, 160, 200]],
 
   // =========================================
   // CONFIGS
   // =========================================
   configs: {
-    bird1: {
+    butterfly: {
       frames: [],
       frameBackgrounds: [],
       frameData: {
@@ -672,7 +708,7 @@ window.popTrailMotion = {
       for (let i = 0; i < conf.frameData.length; i++) {
         const index = conf.frameData.start + i;
         const number = String(index).padStart(conf.frameData.pad, "0");
-        const basePath = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
+        const basePath = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}.${conf.frameData.ext}`;
 
         const img = loadImage(basePath);
         conf.frames.push(img);
@@ -680,7 +716,7 @@ window.popTrailMotion = {
         if (conf.background === "useFrame") {
           let bgStack = [];
           for (let b = 0; b < (conf.maxBackground || 0); b++) {
-            const bgPath = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}_bg${b}.${conf.frameData.ext}`;
+            const bgPath = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}_bg${b}.${conf.frameData.ext}`;
             let bgImg = loadImage(
               bgPath,
               () => {},
@@ -771,6 +807,8 @@ window.popTrailMotion = {
   // 3. SPAWN BOX
   // =========================================
   spawnBox: function (x, y, conf) {
+    if (this.isInBlacklist(x, y)) return;
+
     // ... (Tidak berubah)
     let img = conf.frames[this.frameIndex % conf.frames.length];
     if (!img) return;
@@ -891,6 +929,39 @@ window.popTrailMotion = {
       pop();
     }
   },
+  isInBlacklist: function (x, y) {
+    if (!this.blacklistArea) return false;
+
+    for (let area of this.blacklistArea) {
+      let [x1, y1, x2, y2] = area;
+
+      // convert artwork → canvas
+
+      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+        return true;
+      }
+    }
+
+    return false;
+  },
+
+  debugBlacklist: function () {
+    noFill();
+    strokeWeight(7);
+    stroke(0, 0, 0);
+
+    for (let area of this.blacklistArea) {
+      let [x1, y1, x2, y2] = area;
+
+      let w = x2 - x1;
+      let h = y2 - y1;
+
+      let cx = x1 + w * 0.5;
+      let cy = y1 + h * 0.5;
+
+      rect(cx, cy, w, h);
+    }
+  },
 };
 
 //========================= trailBrushMoion
@@ -984,7 +1055,7 @@ window.trailBrushMotion = {
       for (let i = 0; i < conf.frameData.length; i++) {
         const index = conf.frameData.start + i;
         const number = String(index).padStart(conf.frameData.pad, "0");
-        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}-${number}.${conf.frameData.ext}`;
+        const path = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}.${conf.frameData.ext}`;
 
         conf.frames.push(loadImage(path));
       }
@@ -1294,6 +1365,7 @@ async function setup() {
 
 //=========================  q5 draw()
 function draw() {
+  frameRate(30);
   let currentTime = millis();
 
   // noLoop();
@@ -1500,18 +1572,22 @@ function draw() {
   popTrailMotion.update(currentTime);
 
   drawFrames.draw("_1_bg", 1080, 1350, 0, artworkDrawY);
-  drawFrames.draw("_1b_rope", 1080, 1350, 0, artworkDrawY);
+  drawFrames.draw("_2_rope", 1080, 1350, 0, artworkDrawY);
 
-  popTrailMotion.draw(currentTime, popTrailMotion.configs.bird1);
-  drawFrames.draw("_2_soul", 1080, 1350, 0, artworkDrawY);
-  44;
-  trailBrushMotionBitmap.draw(currentTime, trailBrushMotionBitmap.configs.bird);
+  // popTrailMotion.draw(currentTime, popTrailMotion.configs.bird1);
 
+  drawFrames.draw("_3_soul", 1080, 1350, 0, artworkDrawY);
+
+  popTrailMotion.draw(currentTime, trailBrushMotionBitmap.configs.butterfly);
   drawFrames.draw("_4_bunga", 1080, 1350, 0, artworkDrawY);
-  drawFrames.draw("_3_daun", 1080, 1350, 0, artworkDrawY);
-  drawFrames.draw("_5_daun", 1080, 1350, 0, artworkDrawY);
 
-  popTrailMotion.draw(currentTime, popTrailMotion.configs.bird2);
+  trailBrushMotionBitmap.draw(currentTime, trailBrushMotionBitmap.configs.bird);
+  drawFrames.draw("_5_bunga", 1080, 1350, 0, artworkDrawY);
+
+  // popTrailMotion.draw(currentTime, popTrailMotion.configs.bird2);
+  drawFrames.draw("textures", 1080, 1350, 0, artworkDrawY);
+
+  // trailBrushMotionBitmap.debugBlacklist();
 
   handleMouseInput();
 
@@ -1630,30 +1706,77 @@ function processTrailMouseInput(conf) {
 }
 
 //========================= processTrailHandInput
+// function processTrailHandInput(conf, inputX, inputY) {
+//   // inputX/Y di sini adalah smoothX/Y
+//   let m = trailBrushMotionBitmap;
+
+//   // Deadzone bisa dikecilin dikit karena inputnya udah smooth
+//   let deadZone = 80;
+
+//   let d = 0;
+//   if (m.lastDrawX !== null && m.lastDrawY !== null) {
+//     d = dist(m.lastDrawX, m.lastDrawY, inputX, inputY);
+//   } else {
+//     d = 9999;
+//   }
+
+//   if (!m.isDrawing) {
+//     // Kalau tangan diem (d < deadzone), jangan gambar
+//     if (d > deadZone) {
+//       m.spawnBox(inputX, inputY, conf);
+//       m.lastDrawX = inputX;
+//       m.lastDrawY = inputY;
+//       m.isDrawing = true; // Aktifkan drawing state
+//     }
+//   } else {
+//     // Logic Trail Normal
+//     if (d >= conf.spacing) {
+//       let angle = atan2(inputY - m.lastDrawY, inputX - m.lastDrawX);
+//       let steps = floor(d / conf.spacing);
+
+//       for (let i = 1; i <= steps; i++) {
+//         m.spawnBox(
+//           m.lastDrawX + cos(angle) * conf.spacing * i,
+//           m.lastDrawY + sin(angle) * conf.spacing * i,
+//           conf,
+//         );
+//       }
+//       m.lastDrawX = inputX;
+//       m.lastDrawY = inputY;
+//     }
+//   }
+// }
+
 function processTrailHandInput(conf, inputX, inputY) {
-  // inputX/Y di sini adalah smoothX/Y
   let m = trailBrushMotionBitmap;
 
-  // Deadzone bisa dikecilin dikit karena inputnya udah smooth
   let deadZone = 80;
 
-  let d = 0;
-  if (m.lastDrawX !== null && m.lastDrawY !== null) {
-    d = dist(m.lastDrawX, m.lastDrawY, inputX, inputY);
-  } else {
-    d = 9999;
+  // ===== FIX PENTING =====
+  if (m.lastDrawX === null || m.lastDrawY === null) {
+    m.spawnBox(inputX, inputY, conf);
+
+    m.lastDrawX = inputX;
+    m.lastDrawY = inputY;
+
+    m.isDrawing = true;
+
+    return;
   }
+  // =======================
+
+  let d = dist(m.lastDrawX, m.lastDrawY, inputX, inputY);
 
   if (!m.isDrawing) {
-    // Kalau tangan diem (d < deadzone), jangan gambar
     if (d > deadZone) {
       m.spawnBox(inputX, inputY, conf);
+
       m.lastDrawX = inputX;
       m.lastDrawY = inputY;
-      m.isDrawing = true; // Aktifkan drawing state
+
+      m.isDrawing = true;
     }
   } else {
-    // Logic Trail Normal
     if (d >= conf.spacing) {
       let angle = atan2(inputY - m.lastDrawY, inputX - m.lastDrawX);
       let steps = floor(d / conf.spacing);
@@ -1665,6 +1788,7 @@ function processTrailHandInput(conf, inputX, inputY) {
           conf,
         );
       }
+
       m.lastDrawX = inputX;
       m.lastDrawY = inputY;
     }
@@ -1730,6 +1854,8 @@ function handleRightHandInput(
     processTrailHandInput(conf, smoothX, smoothY);
   } else {
     trailBrushMotionBitmap.isDrawing = false;
+    trailBrushMotionBitmap.lastDrawX = null;
+    trailBrushMotionBitmap.lastDrawY = null;
 
     cursorCirclesTrail = [];
   }
@@ -1832,3 +1958,5 @@ function changeBackgroundColor(color) {
   backgroundColor = color;
   document.body.style.backgroundColor = color;
 }
+
+function postProcess() {}
