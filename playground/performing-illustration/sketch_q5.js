@@ -568,7 +568,7 @@ window.trailBrushMotionBitmap = {
       baseLifeTime: 1000,
       maxLifeTime: 6000,
       imageLifeTimeDelay: -100,
-      animationSpeed: 200,
+      animationSpeed: 150,
       pauseBoxBefore: false,
       easing: "none",
       shortcut: "1",
@@ -594,10 +594,10 @@ window.trailBrushMotionBitmap = {
       backgroundScaleJitter: [1.3, 1.6],
       mainImageScale: 1,
       spacing: 80,
-      baseLifeTime: 1000,
-      maxLifeTime: 6000,
+      baseLifeTime: 500,
+      maxLifeTime: 10000,
       imageLifeTimeDelay: -100,
-      animationSpeed: 200,
+      animationSpeed: 150,
       pauseBoxBefore: false,
       easing: "none",
       shortcut: "2",
@@ -1198,7 +1198,7 @@ window.popTrailMotion = {
       x: x,
       y: y,
       conf: conf,
-      born: millis(),
+      born: currentTime,
       deathDuration: dynamicLifeTime,
       startFrame: this.frameIndex % conf.frames.length,
       bgJitterMul: jitterMul,
@@ -1351,13 +1351,13 @@ window.trailBrushMotion = {
       },
       boxWidth: 50,
       spacing: 80,
-      baseLifeTime: 100,
+      baseLifeTime: 800,
       maxLifeTime: 6000,
       boxStrokeWeight: 8,
       boxStrokeColor: "black",
       boxFillColor: "white",
       imageLifeTimeDelay: -100,
-      animationSpeed: 200,
+      animationSpeed: 100,
       boxOverlapSize: 0.5,
       pauseBoxBefore: true,
       easing: "none",
@@ -1376,13 +1376,13 @@ window.trailBrushMotion = {
       },
       boxWidth: 50,
       spacing: 80,
-      baseLifeTime: 400,
+      baseLifeTime: 800,
       maxLifeTime: 6000,
       boxStrokeWeight: 0,
       boxStrokeColor: cssToRGBA("rgba(255,255,255,0.5)"),
       boxFillColor: cssToRGBA("rgba(0,0,0,0.5)"),
       imageLifeTimeDelay: -100,
-      animationSpeed: 200,
+      animationSpeed: 100,
       boxOverlapSize: 0.5,
       pauseBoxBefore: true,
       easing: "none",
@@ -1536,7 +1536,7 @@ window.trailBrushMotion = {
       jitterW: random(10, 50),
       jitterH: random(1, 100),
       startFrame: this.frameIndex % conf.frames.length,
-      born: millis(),
+      born: currentTime,
       deathDuration: dynamicLifeTime,
       isOverlapped: this.checkOverlap(x, y, conf),
       frozenFrame: null,
@@ -1548,7 +1548,7 @@ window.trailBrushMotion = {
   freezePrevious: function (conf) {
     for (let b of this.boxes) {
       if (b.isPlaying) {
-        let age = millis() - b.born;
+        let age = currentTime - b.born;
         b.frozenFrame =
           (b.startFrame + floor(age / conf.animationSpeed)) %
           b.conf.frames.length;
@@ -1558,9 +1558,14 @@ window.trailBrushMotion = {
   },
 
   checkOverlap: function (x, y, conf) {
-    return this.boxes.some(
-      (b) => dist(x, y, b.x, b.y) < conf.boxWidth * conf.boxOverlapSize,
-    );
+    let spacing = (conf.spacing || 50) * 0.5;
+    let spacingSq = spacing * spacing;
+
+    return this.boxes.some((b) => {
+      let dx = x - b.x;
+      let dy = y - b.y;
+      return dx * dx + dy * dy < spacingSq;
+    });
   }, // Perubahan: Menerima durasi spesifik agar bisa fleksibel antara box vs image
 
   calculateScale: function (age, duration, easingType) {
@@ -1625,6 +1630,8 @@ async function setup() {
     initialResolution.height,
   );
   artworkCanvas.parent(mainCanvas);
+
+  frameRate(artworkFPS);
 
   //----- setup webcam
   webcamReferences = await createCapture(
@@ -1732,7 +1739,6 @@ async function setup() {
 
 //=========================  q5 draw()
 function draw() {
-  frameRate(artworkFPS);
   let currentTime = millis();
 
   // noLoop();
@@ -2060,7 +2066,9 @@ function processTrailMouseInput(conf) {
     m.spawnBox(mouseX, mouseY, conf);
     m.isDrawing = true;
   } else {
-    let d = dist(m.lastDrawX, m.lastDrawY, mouseX, mouseY);
+    let dx = mouseX - m.lastDrawX;
+    let dy = mouseY - m.lastDrawY;
+    let d = Math.sqrt(dx * dx + dy * dy);
     if (d >= conf.spacing) {
       let angle = atan2(mouseY - m.lastDrawY, mouseX - m.lastDrawX);
       let steps = floor(d / conf.spacing);
@@ -2187,6 +2195,8 @@ function handleRightHandInput(
   // "smoothX mendekati cursorX sebesar 8% setiap frame"
   smoothX = lerp(smoothX, cursorX, easingFactor);
   smoothY = lerp(smoothY, cursorY, easingFactor);
+
+  if (abs(cursorX - smoothX) < 0.1) smoothX = cursorX;
 
   // Debug Visual (Opsional):
   // fill(sketchColors.grayblue); circle(smoothX, smoothY, 15); // Lihat bedanya bola biru (smooth) vs merah (asli)
