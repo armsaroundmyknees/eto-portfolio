@@ -146,11 +146,21 @@ async function initQ5() {
 window.spawnBackgroundList = {
   configs: {
     // contoh:
-    background1: {
+    butterfly: {
       backgroundList: [
-        "assets/motionsBackground/bg1-01.png",
-        "assets/motionsBackground/bg1-02.png",
+        "assets/motionsBackground/bg-a-00.png",
+        "assets/motionsBackground/bg-a-01.png",
       ],
+
+      backgrounds: [],
+    },
+
+    bird: {
+      backgroundList: [
+        "assets/motionsBackground/bg-b-00.png",
+        "assets/motionsBackground/bg-b-01.png",
+      ],
+
       backgrounds: [],
     },
   },
@@ -170,8 +180,364 @@ window.spawnBackgroundList = {
 // ===============================
 // TRAIL BRUSH MOTION BITMAP
 // ===============================
+// window.trailBrushMotionBitmap = {
+//   boxes: [],
+//   frameIndex: 0,
+//   usedConfig: "bird",
+//   blacklistArea: [[-300, -300, 160, 200]],
+
+//   configs: {
+//     bird: {
+//       frames: [],
+//       frameBackgrounds: [], // auto diisi fetch
+
+//       frameData: {
+//         filename: "bird",
+//         imageDir: "assets/motions",
+//         length: 5,
+//         ext: "png",
+//         pad: 3,
+//         start: 1,
+//       },
+//       background: spawnBackgroundList.configs.bird,
+//       // "useFrame"
+//       // atau
+//       // background: spawnBackgroundList.configs.background1
+//       maxBackground: 3,
+//       backgroundScale: 1.3,
+//       backgroundScaleJitter: [1.3, 1.6], // null untuk gak ada jitter
+//       mainImageScale: 1,
+//       spacing: 80,
+//       baseLifeTime: 1000,
+//       maxLifeTime: 6000,
+//       imageLifeTimeDelay: -100,
+//       animationSpeed: 200,
+//       pauseBoxBefore: false,
+//       easing: "none",
+//       shortcut: "1",
+//     },
+
+//     butterfly: {
+//       frames: [],
+//       frameBackgrounds: [], // auto diisi fetch
+
+//       frameData: {
+//         filename: "bt",
+//         imageDir: "assets/motions",
+//         length: 8,
+//         ext: "png",
+//         pad: 3,
+//         start: 1,
+//       },
+//       background: spawnBackgroundList.configs.butterfly,
+//       // "useFrame"
+//       // atau
+//       // background: spawnBackgroundList.configs.background1
+//       maxBackground: 3,
+//       backgroundScale: 0.9,
+//       backgroundScaleJitter: [1.3, 1.6], // null untuk gak ada jitter
+//       mainImageScale: 1,
+//       spacing: 80,
+//       baseLifeTime: 1000,
+//       maxLifeTime: 6000,
+//       imageLifeTimeDelay: -100,
+//       animationSpeed: 200,
+//       pauseBoxBefore: false,
+//       easing: "none", // size
+//       shortcut: "2",
+//     },
+//   },
+
+//   // ===============================
+//   // FETCH ALL IMAGES
+//   // ===============================
+//   fetchConfig: async function () {
+//     for (let key in this.configs) {
+//       let conf = this.configs[key];
+//       conf.frames = [];
+//       conf.frameBackgrounds = [];
+
+//       // load main frames
+//       for (let i = 0; i < conf.frameData.length; i++) {
+//         const index = conf.frameData.start + i;
+//         const number = String(index).padStart(conf.frameData.pad, "0");
+
+//         const basePath = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}.${conf.frameData.ext}`;
+
+//         const img = loadImage(basePath);
+//         conf.frames.push(img);
+
+//         // background per frame
+//         if (conf.background === "useFrame") {
+//           let bgStack = [];
+
+//           for (let b = 0; b < (conf.maxBackground || 0); b++) {
+//             const bgPath = `${conf.frameData.imageDir}/${conf.frameData.filename}_${number}_bg${b}.${conf.frameData.ext}`;
+
+//             let bgImg = loadImage(
+//               bgPath,
+//               () => {},
+//               () => {}, // ignore error (file boleh gak ada)
+//             );
+
+//             bgStack.push(bgImg);
+//           }
+
+//           conf.frameBackgrounds.push(bgStack);
+//         }
+//       }
+//     }
+//   },
+
+//   // ===============================
+
+//   update: function (currentTime, confFilter = null) {
+//     this.boxes = this.boxes.filter((b) => {
+//       if (confFilter && b.conf !== confFilter) return true;
+
+//       // 1. Hitung durasi Image (Base + Delay)
+//       let imgDuration = b.deathDuration + (b.conf.imageLifeTimeDelay || 0);
+
+//       // 2. Hitung durasi Background (Base saja)
+//       let bgDuration = b.deathDuration;
+
+//       // 3. Ambil mana yang paling lama. Box harus tetap hidup selama salah satu masih tampil.
+//       let realLifeTime = Math.max(bgDuration, imgDuration);
+
+//       return currentTime - b.born <= realLifeTime;
+//     });
+
+//     // Update auto pilots
+//   },
+
+//   // ===============================
+//   draw: function (currentTime, confFilter = null) {
+//     let boxes = confFilter
+//       ? this.boxes.filter((b) => b.conf === confFilter)
+//       : this.boxes;
+
+//     if (boxes.length === 0) return;
+
+//     // ============================================
+//     // AMBIL CONFIG AKTIF
+//     // ============================================
+//     let activeConf = confFilter || this.configs[this.usedConfig];
+//     if (!activeConf) return;
+
+//     let maxBG = 0;
+//     if (activeConf.background === "useFrame") {
+//       maxBG = activeConf.maxBackground || 0;
+//     } else if (activeConf.background && activeConf.background.backgrounds) {
+//       maxBG = activeConf.background.backgrounds.length;
+//     }
+
+//     // ============================================
+//     // A. DRAW BACKGROUND (Looping berdasarkan deathDuration ASLI)
+//     // ============================================
+//     for (let bgIndex = 0; bgIndex < maxBG; bgIndex++) {
+//       for (let b of boxes) {
+//         if (this.isInBlacklist(b.x, b.y)) continue;
+
+//         let age = currentTime - b.born;
+
+//         // --- LOGIKA BACKGROUND: Menggunakan base duration murni ---
+//         let bgLifeDuration = b.deathDuration;
+
+//         // Kalau umur sudah lewat base duration, background jangan digambar
+//         if (age > bgLifeDuration) continue;
+
+//         let frameIdx = this.getAnimationFrame(b, age);
+
+//         // Easing untuk background ikut durasi background sendiri
+//         let easeScale = this.calculateScale(age, bgLifeDuration, b.conf.easing);
+
+//         let baseScale = (b.conf.backgroundScale || 1) * (b.bgJitterMul || 1);
+//         let bgScale = baseScale * easeScale;
+
+//         push();
+//         imageMode(CENTER);
+//         translate(b.x, b.y);
+//         scale(bgScale);
+
+//         if (b.conf.background === "useFrame") {
+//           let bgStack = b.conf.frameBackgrounds[frameIdx];
+//           if (bgStack && bgStack[bgIndex]) image(bgStack[bgIndex], 0, 0);
+//         } else if (b.conf.background && b.conf.background.backgrounds) {
+//           let list = b.conf.background.backgrounds;
+//           if (list[bgIndex]) image(list[bgIndex], 0, 0);
+//         }
+//         pop();
+//       }
+//     }
+
+//     // ============================================
+//     // B. DRAW MAIN IMAGE (Looping berdasarkan deathDuration + DELAY)
+//     // ============================================
+//     for (let b of boxes) {
+//       let age = currentTime - b.born;
+
+//       // --- LOGIKA IMAGE: Menggunakan base + delay ---
+//       // Jika delay MINUS -> imgLifeDuration jadi lebih pendek (hilang duluan)
+//       // Jika delay PLUS  -> imgLifeDuration jadi lebih panjang (hilang belakangan)
+//       let imgLifeDuration = b.isOverlapped
+//         ? 300
+//         : Math.max(0, b.deathDuration + (b.conf.imageLifeTimeDelay || 0));
+
+//       // Kalau umur sudah lewat durasi image (yg sudah kena delay), jangan digambar
+//       if (age > imgLifeDuration) continue;
+
+//       let frameIdx = this.getAnimationFrame(b, age);
+//       let mainImg = b.conf.frames[frameIdx];
+//       if (!mainImg) continue;
+
+//       // Easing untuk image ikut durasi image sendiri (agar scale out pas)
+//       let easeScale = this.calculateScale(age, imgLifeDuration, b.conf.easing);
+//       let mainScale = easeScale * (b.conf.mainImageScale || 1);
+
+//       push();
+//       imageMode(CENTER);
+//       translate(b.x, b.y);
+//       scale(mainScale);
+//       image(mainImg, 0, 0);
+//       pop();
+//     }
+//   },
+
+//   // ===============================
+//   spawnBox: function (x, y, conf) {
+//     if (this.isInBlacklist(x, y)) return;
+
+//     let img = conf.frames[this.frameIndex % conf.frames.length];
+//     if (!img) return;
+
+//     let dynamicLifeTime = map(
+//       this.boxes.length,
+//       0,
+//       50,
+//       conf.baseLifeTime,
+//       conf.maxLifeTime,
+//       true,
+//     );
+
+//     if (conf.pauseBoxBefore) this.freezePrevious(conf);
+//     // ===== generate jitter sekali saat spawn =====
+//     let jitterMul = 1;
+
+//     if (conf.backgroundScaleJitter) {
+//       let j = conf.backgroundScaleJitter;
+
+//       // biased ke min (lebih sering kecil)
+//       let r = Math.pow(random(), 2.8);
+//       jitterMul = j[0] + (j[1] - j[0]) * r;
+//     }
+
+//     this.boxes.push({
+//       x: x,
+//       y: y,
+//       conf: conf,
+//       born: millis(),
+//       deathDuration: dynamicLifeTime,
+//       startFrame: this.frameIndex % conf.frames.length,
+//       isOverlapped: this.checkOverlap(x, y, conf),
+//       frozenFrame: null,
+//       isPlaying: true,
+//       // simpan jitter permanen
+//       bgJitterMul: jitterMul,
+//     });
+
+//     this.frameIndex++;
+//   },
+
+//   freezePrevious: function (conf) {
+//     for (let b of this.boxes) {
+//       if (b.isPlaying) {
+//         let age = millis() - b.born;
+//         b.frozenFrame =
+//           (b.startFrame + floor(age / conf.animationSpeed)) %
+//           b.conf.frames.length;
+//         b.isPlaying = false;
+//       }
+//     }
+//   },
+
+//   checkOverlap: function (x, y, conf) {
+//     return this.boxes.some(
+//       (b) => dist(x, y, b.x, b.y) < (conf.spacing || 50) * 0.5,
+//     );
+//   },
+
+//   calculateScale: function (age, duration, easingType) {
+//     if (easingType === "none") return 1.0;
+
+//     let progress = age / duration;
+
+//     if (progress < 0.2)
+//       return this.utils.easeOutBack(map(progress, 0, 0.2, 0, 1));
+
+//     if (progress > 0.8) return map(progress, 0.8, 1, 1, 0);
+
+//     return 1.0;
+//   },
+
+//   getAnimationFrame: function (b, age) {
+//     if (!b.conf.pauseBoxBefore || b.isPlaying) {
+//       return (
+//         (b.startFrame + floor(age / b.conf.animationSpeed)) %
+//         b.conf.frames.length
+//       );
+//     }
+//     return b.frozenFrame !== null ? b.frozenFrame : b.startFrame;
+//   },
+
+//   isInBlacklist: function (x, y) {
+//     if (!this.blacklistArea) return false;
+
+//     for (let area of this.blacklistArea) {
+//       let [x1, y1, x2, y2] = area;
+
+//       // convert artwork → canvas
+
+//       if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+//         return true;
+//       }
+//     }
+
+//     return false;
+//   },
+
+//   debugBlacklist: function () {
+//     noFill();
+//     strokeWeight(7);
+//     stroke(0, 0, 0);
+
+//     for (let area of this.blacklistArea) {
+//       let [x1, y1, x2, y2] = area;
+
+//       let w = x2 - x1;
+//       let h = y2 - y1;
+
+//       let cx = x1 + w * 0.5;
+//       let cy = y1 + h * 0.5;
+
+//       rect(cx, cy, w, h);
+//     }
+//   },
+
+//   utils: {
+//     easeOutBack: (x) => {
+//       const c1 = 1.70158;
+//       const c3 = c1 + 1;
+//       return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+//     },
+//     biasedRandom: function (min, max, biasPow = 2.5) {
+//       let r = Math.pow(random(), biasPow);
+//       return min + (max - min) * r;
+//     },
+//   },
+// };
+
 window.trailBrushMotionBitmap = {
-  boxes: [],
+  boxes: {},
   frameIndex: 0,
   usedConfig: "bird",
   blacklistArea: [[-300, -300, 160, 200]],
@@ -179,28 +545,23 @@ window.trailBrushMotionBitmap = {
   configs: {
     bird: {
       frames: [],
-      frameBackgrounds: [], // auto diisi fetch
+      frameBackgrounds: [],
 
       frameData: {
         filename: "bird",
         imageDir: "assets/motions",
-        length: 6,
+        length: 5,
         ext: "png",
         pad: 3,
         start: 1,
       },
 
-      background: spawnBackgroundList.configs.background1,
-      // "useFrame"
-      // atau
-      // background: spawnBackgroundList.configs.background1
+      background: spawnBackgroundList.configs.bird,
 
       maxBackground: 3,
       backgroundScale: 1.3,
-      backgroundScaleJitter: [1.3, 1.6], // null untuk gak ada jitter
-
-      mainImageScale: 0.6,
-
+      backgroundScaleJitter: [1.3, 1.6],
+      mainImageScale: 1,
       spacing: 80,
       baseLifeTime: 1000,
       maxLifeTime: 6000,
@@ -210,18 +571,48 @@ window.trailBrushMotionBitmap = {
       easing: "none",
       shortcut: "1",
     },
+
+    butterfly: {
+      frames: [],
+      frameBackgrounds: [],
+
+      frameData: {
+        filename: "bt",
+        imageDir: "assets/motions",
+        length: 8,
+        ext: "png",
+        pad: 3,
+        start: 1,
+      },
+
+      background: spawnBackgroundList.configs.butterfly,
+
+      maxBackground: 3,
+      backgroundScale: 0.9,
+      backgroundScaleJitter: [1.3, 1.6],
+      mainImageScale: 1,
+      spacing: 80,
+      baseLifeTime: 1000,
+      maxLifeTime: 6000,
+      imageLifeTimeDelay: -100,
+      animationSpeed: 200,
+      pauseBoxBefore: false,
+      easing: "none",
+      shortcut: "2",
+    },
   },
 
-  // ===============================
-  // FETCH ALL IMAGES
-  // ===============================
   fetchConfig: async function () {
     for (let key in this.configs) {
       let conf = this.configs[key];
+
+      this.boxes[key] = [];
+
+      conf.name = key;
+
       conf.frames = [];
       conf.frameBackgrounds = [];
 
-      // load main frames
       for (let i = 0; i < conf.frameData.length; i++) {
         const index = conf.frameData.start + i;
         const number = String(index).padStart(conf.frameData.pad, "0");
@@ -231,7 +622,6 @@ window.trailBrushMotionBitmap = {
         const img = loadImage(basePath);
         conf.frames.push(img);
 
-        // background per frame
         if (conf.background === "useFrame") {
           let bgStack = [];
 
@@ -241,7 +631,7 @@ window.trailBrushMotionBitmap = {
             let bgImg = loadImage(
               bgPath,
               () => {},
-              () => {}, // ignore error (file boleh gak ada)
+              () => {},
             );
 
             bgStack.push(bgImg);
@@ -253,129 +643,117 @@ window.trailBrushMotionBitmap = {
     }
   },
 
-  // ===============================
+  update: function (currentTime) {
+    for (let key in this.boxes) {
+      this.boxes[key] = this.boxes[key].filter((b) => {
+        let imgDuration = b.deathDuration + (b.conf.imageLifeTimeDelay || 0);
 
-  update: function (currentTime, confFilter = null) {
-    this.boxes = this.boxes.filter((b) => {
-      if (confFilter && b.conf !== confFilter) return true;
+        let bgDuration = b.deathDuration;
 
-      // 1. Hitung durasi Image (Base + Delay)
-      let imgDuration = b.deathDuration + (b.conf.imageLifeTimeDelay || 0);
+        let realLifeTime = Math.max(bgDuration, imgDuration);
 
-      // 2. Hitung durasi Background (Base saja)
-      let bgDuration = b.deathDuration;
-
-      // 3. Ambil mana yang paling lama. Box harus tetap hidup selama salah satu masih tampil.
-      let realLifeTime = Math.max(bgDuration, imgDuration);
-
-      return currentTime - b.born <= realLifeTime;
-    });
-
-    // Update auto pilots
+        return currentTime - b.born <= realLifeTime;
+      });
+    }
   },
 
-  // ===============================
-  draw: function (currentTime, confFilter = null) {
-    let boxes = confFilter
-      ? this.boxes.filter((b) => b.conf === confFilter)
-      : this.boxes;
+  draw: function (currentTime, conf) {
+    if (!conf) return;
 
-    if (boxes.length === 0) return;
+    let boxes = this.boxes[conf.name];
 
-    // ============================================
-    // AMBIL CONFIG AKTIF
-    // ============================================
-    let activeConf = confFilter || this.configs[this.usedConfig];
-    if (!activeConf) return;
+    if (!boxes || boxes.length === 0) return;
 
     let maxBG = 0;
-    if (activeConf.background === "useFrame") {
-      maxBG = activeConf.maxBackground || 0;
-    } else if (activeConf.background && activeConf.background.backgrounds) {
-      maxBG = activeConf.background.backgrounds.length;
+
+    if (conf.background === "useFrame") {
+      maxBG = conf.maxBackground || 0;
+    } else if (conf.background && conf.background.backgrounds) {
+      maxBG = conf.background.backgrounds.length;
     }
 
-    // ============================================
-    // A. DRAW BACKGROUND (Looping berdasarkan deathDuration ASLI)
-    // ============================================
     for (let bgIndex = 0; bgIndex < maxBG; bgIndex++) {
       for (let b of boxes) {
         if (this.isInBlacklist(b.x, b.y)) continue;
 
         let age = currentTime - b.born;
 
-        // --- LOGIKA BACKGROUND: Menggunakan base duration murni ---
         let bgLifeDuration = b.deathDuration;
 
-        // Kalau umur sudah lewat base duration, background jangan digambar
         if (age > bgLifeDuration) continue;
 
         let frameIdx = this.getAnimationFrame(b, age);
 
-        // Easing untuk background ikut durasi background sendiri
         let easeScale = this.calculateScale(age, bgLifeDuration, b.conf.easing);
 
         let baseScale = (b.conf.backgroundScale || 1) * (b.bgJitterMul || 1);
+
         let bgScale = baseScale * easeScale;
 
         push();
+
         imageMode(CENTER);
+
         translate(b.x, b.y);
+
         scale(bgScale);
 
         if (b.conf.background === "useFrame") {
           let bgStack = b.conf.frameBackgrounds[frameIdx];
+
           if (bgStack && bgStack[bgIndex]) image(bgStack[bgIndex], 0, 0);
         } else if (b.conf.background && b.conf.background.backgrounds) {
           let list = b.conf.background.backgrounds;
+
           if (list[bgIndex]) image(list[bgIndex], 0, 0);
         }
+
         pop();
       }
     }
 
-    // ============================================
-    // B. DRAW MAIN IMAGE (Looping berdasarkan deathDuration + DELAY)
-    // ============================================
     for (let b of boxes) {
       let age = currentTime - b.born;
 
-      // --- LOGIKA IMAGE: Menggunakan base + delay ---
-      // Jika delay MINUS -> imgLifeDuration jadi lebih pendek (hilang duluan)
-      // Jika delay PLUS  -> imgLifeDuration jadi lebih panjang (hilang belakangan)
       let imgLifeDuration = b.isOverlapped
         ? 300
         : Math.max(0, b.deathDuration + (b.conf.imageLifeTimeDelay || 0));
 
-      // Kalau umur sudah lewat durasi image (yg sudah kena delay), jangan digambar
       if (age > imgLifeDuration) continue;
 
       let frameIdx = this.getAnimationFrame(b, age);
+
       let mainImg = b.conf.frames[frameIdx];
+
       if (!mainImg) continue;
 
-      // Easing untuk image ikut durasi image sendiri (agar scale out pas)
       let easeScale = this.calculateScale(age, imgLifeDuration, b.conf.easing);
+
       let mainScale = easeScale * (b.conf.mainImageScale || 1);
 
       push();
+
       imageMode(CENTER);
+
       translate(b.x, b.y);
+
       scale(mainScale);
+
       image(mainImg, 0, 0);
+
       pop();
     }
   },
 
-  // ===============================
   spawnBox: function (x, y, conf) {
     if (this.isInBlacklist(x, y)) return;
 
     let img = conf.frames[this.frameIndex % conf.frames.length];
+
     if (!img) return;
 
     let dynamicLifeTime = map(
-      this.boxes.length,
+      this.boxes[conf.name].length,
       0,
       50,
       conf.baseLifeTime,
@@ -384,18 +762,18 @@ window.trailBrushMotionBitmap = {
     );
 
     if (conf.pauseBoxBefore) this.freezePrevious(conf);
-    // ===== generate jitter sekali saat spawn =====
+
     let jitterMul = 1;
 
     if (conf.backgroundScaleJitter) {
       let j = conf.backgroundScaleJitter;
 
-      // biased ke min (lebih sering kecil)
       let r = Math.pow(random(), 2.8);
+
       jitterMul = j[0] + (j[1] - j[0]) * r;
     }
 
-    this.boxes.push({
+    this.boxes[conf.name].push({
       x: x,
       y: y,
       conf: conf,
@@ -405,7 +783,6 @@ window.trailBrushMotionBitmap = {
       isOverlapped: this.checkOverlap(x, y, conf),
       frozenFrame: null,
       isPlaying: true,
-      // simpan jitter permanen
       bgJitterMul: jitterMul,
     });
 
@@ -413,21 +790,31 @@ window.trailBrushMotionBitmap = {
   },
 
   freezePrevious: function (conf) {
-    for (let b of this.boxes) {
-      if (b.isPlaying) {
-        let age = millis() - b.born;
-        b.frozenFrame =
-          (b.startFrame + floor(age / conf.animationSpeed)) %
-          b.conf.frames.length;
-        b.isPlaying = false;
+    for (let key in this.boxes) {
+      for (let b of this.boxes[key]) {
+        if (b.isPlaying) {
+          let age = millis() - b.born;
+
+          b.frozenFrame =
+            (b.startFrame + floor(age / conf.animationSpeed)) %
+            b.conf.frames.length;
+
+          b.isPlaying = false;
+        }
       }
     }
   },
 
   checkOverlap: function (x, y, conf) {
-    return this.boxes.some(
-      (b) => dist(x, y, b.x, b.y) < (conf.spacing || 50) * 0.5,
-    );
+    for (let key in this.boxes) {
+      for (let b of this.boxes[key]) {
+        if (dist(x, y, b.x, b.y) < (conf.spacing || 50) * 0.5) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   },
 
   calculateScale: function (age, duration, easingType) {
@@ -450,6 +837,7 @@ window.trailBrushMotionBitmap = {
         b.conf.frames.length
       );
     }
+
     return b.frozenFrame !== null ? b.frozenFrame : b.startFrame;
   },
 
@@ -459,43 +847,18 @@ window.trailBrushMotionBitmap = {
     for (let area of this.blacklistArea) {
       let [x1, y1, x2, y2] = area;
 
-      // convert artwork → canvas
-
-      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-        return true;
-      }
+      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) return true;
     }
 
     return false;
-  },
-
-  debugBlacklist: function () {
-    noFill();
-    strokeWeight(7);
-    stroke(0, 0, 0);
-
-    for (let area of this.blacklistArea) {
-      let [x1, y1, x2, y2] = area;
-
-      let w = x2 - x1;
-      let h = y2 - y1;
-
-      let cx = x1 + w * 0.5;
-      let cy = y1 + h * 0.5;
-
-      rect(cx, cy, w, h);
-    }
   },
 
   utils: {
     easeOutBack: (x) => {
       const c1 = 1.70158;
       const c3 = c1 + 1;
+
       return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-    },
-    biasedRandom: function (min, max, biasPow = 2.5) {
-      let r = Math.pow(random(), biasPow);
-      return min + (max - min) * r;
     },
   },
 };
@@ -638,16 +1001,16 @@ window.popTrailMotion = {
       frames: [],
       frameBackgrounds: [],
       frameData: {
-        filename: "bird",
+        filename: "bt",
         imageDir: "assets/motions",
-        length: 4,
+        length: 8,
         ext: "png",
         pad: 3,
         start: 1,
       },
       // Config Background
-      background: spawnBackgroundList.configs.background1,
-      backgroundScale: 1.5,
+      background: spawnBackgroundList.configs.butterfly,
+      backgroundScale: 0.9,
       backgroundScaleJitter: [1.4, 1.8],
       spacing: 60,
       baseLifeTime: 500,
@@ -659,7 +1022,7 @@ window.popTrailMotion = {
       shortcut: "4",
 
       // --- [BARU] SETTING HAPUS FRAME AWAL ---
-      deletePreviousFrame: true, // Aktifkan fitur hapus image main
+      deletePreviousFrame: false, // Aktifkan fitur hapus image main
       previousFrameLifeTime: 300, // Image utama hanya bertahan 300ms, sisanya hanya background
       // ---------------------------------------
     },
@@ -675,7 +1038,7 @@ window.popTrailMotion = {
         start: 1,
       },
       // Config Background
-      background: spawnBackgroundList.configs.background1,
+      background: spawnBackgroundList.configs.buttterfly,
       backgroundScale: 1.5,
       backgroundScaleJitter: [1.4, 1.8],
       spacing: 60,
@@ -997,13 +1360,14 @@ window.trailBrushMotion = {
       pauseBoxBefore: true,
       easing: "none",
       shortcut: "1",
+      background: spawnBackgroundList.configs.bird,
     },
-    bird2: {
+    butterfly: {
       frames: [],
       frameData: {
-        filename: "bird",
+        filename: "bt",
         imageDir: "assets/motions",
-        length: 6,
+        length: 8,
         ext: "png",
         pad: 3,
         start: 1,
@@ -1021,6 +1385,7 @@ window.trailBrushMotion = {
       pauseBoxBefore: true,
       easing: "none",
       shortcut: "2",
+      background: spawnBackgroundList.configs.butterfly,
     },
     letter: {
       frames: [],
@@ -1575,13 +1940,18 @@ function draw() {
   drawFrames.draw("_2_rope", 1080, 1350, 0, artworkDrawY);
 
   // popTrailMotion.draw(currentTime, popTrailMotion.configs.bird1);
+  trailBrushMotionBitmap.draw(currentTime, trailBrushMotionBitmap.configs.bird);
 
   drawFrames.draw("_3_soul", 1080, 1350, 0, artworkDrawY);
 
-  popTrailMotion.draw(currentTime, trailBrushMotionBitmap.configs.butterfly);
+  trailBrushMotionBitmap.draw(
+    currentTime,
+    trailBrushMotionBitmap.configs.butterfly,
+  );
+
   drawFrames.draw("_4_bunga", 1080, 1350, 0, artworkDrawY);
 
-  trailBrushMotionBitmap.draw(currentTime, trailBrushMotionBitmap.configs.bird);
+  popTrailMotion.draw(currentTime, popTrailMotion.configs.butterfly);
   drawFrames.draw("_5_bunga", 1080, 1350, 0, artworkDrawY);
 
   // popTrailMotion.draw(currentTime, popTrailMotion.configs.bird2);
