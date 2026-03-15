@@ -45,6 +45,8 @@ let strokeSize = 5;
 let loopStatus = true;
 let motionsList = {};
 
+let artworkFPS = 60;
+
 let drawSettings = {
   strokeSize: 5,
   squareSize: 15,
@@ -1730,7 +1732,7 @@ async function setup() {
 
 //=========================  q5 draw()
 function draw() {
-  frameRate(30);
+  frameRate(artworkFPS);
   let currentTime = millis();
 
   // noLoop();
